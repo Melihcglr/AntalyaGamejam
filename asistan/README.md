@@ -17,24 +17,25 @@ Kontrol paneli: `http://127.0.0.1:8787`
 
 ## Komut örnekleri
 
+- `oyun modu` → ışık kapat + Valorant ekran 2 (sahne)
+- `ışığı kapat` / `lambayı aç`
+- `çalışma modu` / `uyku modu`
 - `cursor aç` / `asistan projesini cursor'da aç`
-- `bana konya restoran sitesi yap` / `şu tarz bir internet sitesi yap: ortalik`
-- `projeye şunu ekle: hakkımızda sayfası`
-- `valorantı ekran 2 de aç` / `valo monitör 2 başlat`
+- `bana konya restoran sitesi yap`
+- `valorantı ekran 2 de aç`
 - `google'la araştır python asyncio`
-- `bana konya restoranları araştır`
-- `jarvis saat kaç`
-- `not defteri aç` / `spotify aç`
-- `sistem durumu` / `çalışan programlar`
+
+### Akıllı oda (ESP32)
+
+- `config.json` → `devices` (ESP32 IP) ve `scenes` (oyun/çalışma…)
+- Örnek firmware: `esp32/jarvis_relay/`
+- Dinlemeyi açınca komutlar sürekli dinlenir (`Dinlemeyi aç` / `python main.py --listen`)
 
 ### Cursor ve kod (önemli)
 
 - Jarvis Cursor'ı ve kayıtlı projeyi **açabilir**.
-- “Site yap” → vanilla HTML/CSS/JS iskeleti `workspace_root/sites/` altına yazar, Cursor'da açar.
-- “Projeyi düzenle / şunu ekle” → `JARVIS_GOREV.md` yazar ve projeyi açar; Cursor Agent sohbetini uzaktan tam süremez, görev dosyasını Agent'a sen verirsin.
-- Projeleri `config.json` → `projects` map'ine ekle.
-
-Valorant yolu `config.json` → `allowed_apps.valorant` içinde.
+- “Site yap” → vanilla HTML/CSS/JS iskeleti yazar.
+- “Projeyi düzenle” → `JARVIS_GOREV.md` notu; Agent sohbetini uzaktan tam sürmez.
 
 ## Yapılandırma
 

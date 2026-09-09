@@ -73,6 +73,24 @@ def create_app(assistant: Assistant | None = None) -> FastAPI:
     def describe_screen() -> dict[str, Any]:
         return bot.handle_text("ekranı açıkla")
 
+    @app.get("/api/devices")
+    def devices() -> dict[str, Any]:
+        return bot.iot.list_devices().data or {}
+
+    @app.post("/api/device/{name}")
+    def device_set(name: str, state: str = "toggle") -> dict[str, Any]:
+        return bot.handle_text(
+            f"{name} {'aç' if state == 'on' else 'kapat' if state == 'off' else 'değiştir'}"
+        )
+
+    @app.get("/api/scenes")
+    def scenes() -> dict[str, Any]:
+        return bot.scenes.list_scenes().data or {}
+
+    @app.post("/api/scene/{name}")
+    def scene_run(name: str) -> dict[str, Any]:
+        return bot.handle_text(f"{name} modu")
+
     @app.get("/api/notes")
     def notes() -> dict[str, Any]:
         return {"notes": bot.memory.list_notes(50)}

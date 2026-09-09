@@ -7,6 +7,7 @@ from pathlib import Path
 from core.assistant import Assistant
 from core.brain import Brain, strip_wake
 from core.config import Settings
+from core.hands import ActionResult
 from core.memory import Memory
 from core.safety import RiskLevel, SafetyGuard
 
@@ -100,6 +101,62 @@ class OfflineAssistantTests(unittest.TestCase):
         self.assertTrue((site / "index.html").exists())
         self.assertTrue((site / "styles.css").exists())
 
+    def test_home_intents(self) -> None:
+        from core.iot_models import DeviceSpec, SceneSpec, SceneStep
+
+        self.settings.devices = {
+            "isik": DeviceSpec(
+                name="Oda ışığı",
+                aliases=["ışık", "lamba"],
+                base_url="http://127.0.0.1:9",
+            )
+        }
+        self.settings.scenes = {
+            "oyun": SceneSpec(
+                name="Oyun modu",
+                aliases=["oyun modu", "game mode"],
+                steps=[
+                    SceneStep(type="device", target="isik", state="off"),
+                    SceneStep(type="open_app", target="notepad"),
+                ],
+            )
+        }
+        brain = Brain(self.settings)
+        light = brain.plan("ışığı kapat")
+        self.assertEqual(light["action"]["type"], "device")
+        self.assertEqual(light["action"]["target"], "isik")
+        self.assertEqual(light["action"]["state"], "off")
+        scene = brain.plan("oyun modu")
+        self.assertEqual(scene["action"]["type"], "scene")
+        self.assertEqual(scene["action"]["target"], "oyun")
+
+    def test_scene_runs_steps(self) -> None:
+        from unittest.mock import patch
+
+        from core.iot_models import DeviceSpec, SceneSpec, SceneStep
+
+        self.settings.devices = {
+            "isik": DeviceSpec(name="Işık", aliases=["ışık"], base_url="http://127.0.0.1:9")
+        }
+        self.settings.scenes = {
+            "oyun": SceneSpec(
+                aliases=["oyun modu"],
+                steps=[
+                    SceneStep(type="device", target="isik", state="off"),
+                    SceneStep(type="open_app", target="notepad"),
+                ],
+            )
+        }
+        self.settings.allowed_apps = {"notepad": "notepad.exe"}
+        self.settings.speak_responses = False
+        bot = self._bot()
+        with patch.object(bot.iot, "set_state", return_value=ActionResult(True, "kapandı")):
+            with patch.object(bot.hands, "open_app", return_value=ActionResult(True, "notepad")):
+                result = bot.handle_text("oyun modu")
+        self.assertEqual(result["action"]["type"], "scene")
+        self.assertTrue(result["result"]["ok"])
+        self.assertEqual(len(result["result"]["data"]["results"]), 2)
+
     def test_notes_flow(self) -> None:
         bot = self._bot()
         r1 = bot.handle_text("not al süt al")
@@ -174,7 +231,10 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(body["result"]["ok"])
 
     def test_settings_patch(self) -> None:
-        res = self.client.patch("/api/settings", json={"require_wake_word": True})
+        from unittest.mock import patch
+
+        with patch.object(self.client.app.state.assistant.settings, "save"):
+            res = self.client.patch("/api/settings", json={"require_wake_word": True})
         self.assertEqual(res.status_code, 200)
         self.assertTrue(res.json()["settings"]["require_wake_word"])
         status = self.client.get("/api/status").json()

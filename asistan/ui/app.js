@@ -13,6 +13,9 @@ const els = {
   btnScreen: document.getElementById("btnScreen"),
   btnDescribe: document.getElementById("btnDescribe"),
   btnWake: document.getElementById("btnWake"),
+  btnGame: document.getElementById("btnGame"),
+  btnWork: document.getElementById("btnWork"),
+  btnLightOff: document.getElementById("btnLightOff"),
 };
 
 let listening = false;
@@ -142,6 +145,21 @@ els.btnWake.addEventListener("click", async () => {
     els.reply.textContent = String(err.message || err);
   }
 });
+
+async function runPhrase(text) {
+  els.reply.textContent = "İşleniyor…";
+  try {
+    const result = await api("/api/command", { method: "POST", body: JSON.stringify({ text }) });
+    els.reply.textContent = result.speech || result.result?.message || "Tamam.";
+    await refresh();
+  } catch (err) {
+    els.reply.textContent = String(err.message || err);
+  }
+}
+
+els.btnGame.addEventListener("click", () => runPhrase("oyun modu"));
+els.btnWork.addEventListener("click", () => runPhrase("çalışma modu"));
+els.btnLightOff.addEventListener("click", () => runPhrase("ışığı kapat"));
 
 refresh();
 setInterval(refresh, 4000);

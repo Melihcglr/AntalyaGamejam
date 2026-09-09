@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
+from .iot_models import DeviceSpec, SceneSpec, SceneStep  # noqa: F401
+
 
 class AppSpec(BaseModel):
     path: str
@@ -41,6 +43,8 @@ class Settings(BaseModel):
     workspace_root: str = str(Path.home() / "JarvisWorkspace")
     cursor_cli: str = "cursor"
     projects: dict[str, str] = Field(default_factory=dict)
+    devices: dict[str, DeviceSpec] = Field(default_factory=dict)
+    scenes: dict[str, SceneSpec] = Field(default_factory=dict)
 
     @field_validator("allowed_apps", mode="before")
     @classmethod
@@ -51,6 +55,20 @@ class Settings(BaseModel):
         for key, raw in value.items():
             out[str(key).lower()] = AppSpec.from_value(raw).model_dump()
         return out
+
+    @field_validator("devices", mode="before")
+    @classmethod
+    def normalize_devices(cls, value: Any) -> dict[str, Any]:
+        if not isinstance(value, dict):
+            return {}
+        return {str(k).lower(): v for k, v in value.items()}
+
+    @field_validator("scenes", mode="before")
+    @classmethod
+    def normalize_scenes(cls, value: Any) -> dict[str, Any]:
+        if not isinstance(value, dict):
+            return {}
+        return {str(k).lower(): v for k, v in value.items()}
 
     @classmethod
     def load(cls, path: Path | None = None) -> "Settings":
@@ -76,6 +94,8 @@ class Settings(BaseModel):
             else:
                 apps[key] = spec.path
         payload["allowed_apps"] = apps
+        payload["devices"] = {k: v.model_dump() for k, v in self.devices.items()}
+        payload["scenes"] = {k: v.model_dump() for k, v in self.scenes.items()}
         config_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",

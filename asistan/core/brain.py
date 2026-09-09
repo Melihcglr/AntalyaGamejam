@@ -23,24 +23,21 @@ Sadece şu JSON şemasını döndür:
 {
   "speech": "Kullanıcıya sesli söylenecek kısa Türkçe cevap",
   "action": {
-    "type": "none|open_app|open_url|shell|type_text|camera|screen|describe_camera|describe_screen|status|list_apps|time|search|note_add|note_list|note_clear|volume|processes|open_path|open_cursor|open_project|create_site|agent_prompt|list_projects",
-    "target": "hedef (uygulama, url, arama, proje adı, site brief veya görev)",
+    "type": "none|open_app|open_url|shell|type_text|camera|screen|describe_camera|describe_screen|status|list_apps|time|search|note_add|note_list|note_clear|volume|processes|open_path|open_cursor|open_project|create_site|agent_prompt|list_projects|device|device_status|list_devices|scene|list_scenes",
+    "target": "hedef",
     "monitor": null,
+    "state": null,
     "confirm_token": null
   }
 }
 
 Kurallar:
+- "oyun modu" → scene target=oyun
+- "ışığı kapat" / "lambayı aç" → device target=isik state=off|on
 - "valorantı ekran 2 de aç" → open_app target=valorant, monitor=2
 - "cursor aç" → open_cursor
-- "asistan projesini cursor'da aç" → open_project target=asistan
-- "bana restoran sitesi yap" / "şu tarz bir site yap: ..." → create_site
-- "projeye şunu ekle/düzenle: ..." → agent_prompt (Cursor için görev notu)
-- "bunu google'la araştır: ..." / "bana X araştır" → search
-- Tehlikeli silme/format/kapatma isteme; shell için mümkün olduğunca kaçın.
-- open_app target: notepad, explorer, chrome, edge, calculator, spotify, vscode, cursor, valorant, discord, steam
-- volume target: up|down|mute
-- JSON dışında hiçbir şey yazma.
+- "bana restoran sitesi yap" → create_site
+- Tehlikeli silme/format kaçın. JSON dışında bir şey yazma.
 """
 
 # anahtar -> konuşma aliasları
@@ -109,6 +106,82 @@ def extract_google_query(text: str) -> str | None:
                 if opened:
                     continue
             return q
+    return None
+
+
+def match_home_intent(
+    text: str,
+    device_keys: list[str] | None = None,
+    scene_keys: list[str] | None = None,
+    device_aliases: dict[str, list[str]] | None = None,
+    scene_aliases: dict[str, list[str]] | None = None,
+) -> dict[str, Any] | None:
+    """Akıllı oda cihaz + sahne (oyun modu vb.)."""
+    lowered = text.strip().lower()
+    device_aliases = device_aliases or {}
+    scene_aliases = scene_aliases or {}
+
+    if any(k in lowered for k in ("cihazları listele", "cihazlar", "akıllı cihaz")):
+        return plan("list_devices", "", "Cihazları listeliyorum.")
+    if any(k in lowered for k in ("sahneleri listele", "modları listele", "sahneler")):
+        return plan("list_scenes", "", "Sahneleri listeliyorum.")
+
+    # Sahne: "oyun modu", "çalışma modunu aç"
+    for key, aliases in scene_aliases.items():
+        names = [key, *aliases]
+        for alias in names:
+            a = alias.lower()
+            if not a:
+                continue
+            if a in lowered or f"{a} modu" in lowered or f"{a} modunu" in lowered:
+                if any(w in lowered for w in ("mod", "sahne", "aktif", "aç", "başlat", "geç")) or a.endswith("modu") or "modu" in lowered:
+                    return plan("scene", key, f"{alias} sahnesini başlatıyorum.")
+                if lowered.strip() in {a, f"{a} modu", f"{key} modu"}:
+                    return plan("scene", key, f"{alias} sahnesini başlatıyorum.")
+
+    # Genel: "oyun modu" kalıbı
+    sm = re.search(r"([a-zçğıöşü0-9_\-]+)\s+modu(?:nu|n[au])?(?:\s+aç|\s+başlat|\s+aktif)?", lowered)
+    if sm:
+        return plan("scene", sm.group(1), f"{sm.group(1)} modunu başlatıyorum.")
+
+    # Cihaz: ışığı kapat / lambayı aç — yalnızca bilinen ev cihazları
+    dm = re.search(
+        r"(.+?)\s+(aç|kapat|söndür|yak|toggle|değiştir)\s*$",
+        lowered,
+    )
+    if dm:
+        raw_name = dm.group(1).strip()
+        verb = dm.group(2)
+        if "mod" in raw_name:
+            return None
+        raw_name = re.sub(r"(?:['’])?(?:yı|yi|yu|yü|nı|ni|nu|nü|ı|i|u|ü)$", "", raw_name).strip()
+        state = "on" if verb in {"aç", "yak"} else "off" if verb in {"kapat", "söndür"} else "toggle"
+        target = None
+        for key, aliases in device_aliases.items():
+            bag = [key, *[a.lower() for a in aliases]]
+            if any(a and (a == raw_name or a in raw_name or raw_name in a) for a in bag):
+                target = key
+                break
+        home_words = (
+            "ışık",
+            "isik",
+            "lamba",
+            "röle",
+            "role",
+            "priz",
+            "fan",
+            "klima",
+            "led",
+            "şerit",
+            "perde",
+        )
+        if target is None and any(w == raw_name or w in raw_name for w in home_words):
+            target = raw_name
+        if target is not None:
+            return plan("device", target, f"{target} için {state}.", state=state)
+
+    if "cihaz durumu" in lowered or "ışık durumu" in lowered:
+        return plan("device_status", "", "Cihaz durumuna bakıyorum.")
     return None
 
 
@@ -220,6 +293,14 @@ class Brain:
                 api_key=settings.openai_api_key,
                 base_url=settings.openai_base_url or None,
             )
+        self.device_aliases = {
+            k: list(v.aliases) + ([v.name] if v.name else [])
+            for k, v in settings.devices.items()
+        }
+        self.scene_aliases = {
+            k: list(v.aliases) + ([v.name] if v.name else [])
+            for k, v in settings.scenes.items()
+        }
 
     @property
     def ready(self) -> bool:
@@ -260,6 +341,7 @@ class Brain:
                 "type": action.get("type") or "none",
                 "target": action.get("target") or "",
                 "monitor": monitor_i,
+                "state": action.get("state"),
                 "confirm_token": action.get("confirm_token"),
             },
         }
@@ -302,6 +384,14 @@ class Brain:
 
         if any(k in text for k in ("saat kaç", "tarih", "bugün günlerden")):
             return plan("time", "", "Zamanı söylüyorum.")
+
+        home = match_home_intent(
+            text,
+            device_aliases=self.device_aliases,
+            scene_aliases=self.scene_aliases,
+        )
+        if home:
+            return home
 
         coding = match_coding_intent(text)
         if coding:
@@ -380,6 +470,7 @@ def plan(
     target: str,
     speech: str,
     monitor: int | None = None,
+    state: str | None = None,
 ) -> dict[str, Any]:
     return {
         "speech": speech,
@@ -387,6 +478,7 @@ def plan(
             "type": action_type,
             "target": target,
             "monitor": monitor,
+            "state": state,
             "confirm_token": None,
         },
     }

@@ -11,9 +11,11 @@ from .config import Settings
 from .ear import Ear
 from .eye import Eye
 from .hands import ActionResult, Hands
+from .iot import IoTHub
 from .memory import Memory
 from .mouth import Mouth
 from .safety import SafetyGuard
+from .scenes import SceneRunner
 
 
 @dataclass
@@ -47,6 +49,8 @@ class Assistant:
             window_move_timeout_sec=self.settings.window_move_timeout_sec,
         )
         self.coder = Coder(self.settings, self.hands.allowed_apps)
+        self.iot = IoTHub(self.settings.devices)
+        self.scenes = SceneRunner(self.settings.scenes)
         self.eye = Eye()
         self.memory = Memory.load()
         self.ear: Ear | None = None
@@ -116,6 +120,11 @@ class Assistant:
                 "note_list",
                 "describe_camera",
                 "describe_screen",
+                "scene",
+                "device",
+                "device_status",
+                "list_devices",
+                "list_scenes",
             }:
                 speech = result.message or speech
             elif not result.ok and result.message:
@@ -171,6 +180,16 @@ class Assistant:
             return self.coder.write_agent_prompt(prompt, project=project)
         if kind == "list_projects":
             return self.coder.list_projects()
+        if kind == "device":
+            return self.iot.set_state(target, action.get("state") or "toggle")
+        if kind == "device_status":
+            return self.iot.status(target or None)
+        if kind == "list_devices":
+            return self.iot.list_devices()
+        if kind == "scene":
+            return self.scenes.run(target, execute=self._execute)
+        if kind == "list_scenes":
+            return self.scenes.list_scenes()
         if kind == "open_url":
             return self.hands.open_url(target)
         if kind == "open_path":
@@ -242,5 +261,7 @@ class Assistant:
             "pending_action": self.safety.pending_action,
             "allowed_apps": sorted(self.settings.allowed_apps),
             "notes_count": len(self.memory.notes),
+            "devices": list(self.settings.devices),
+            "scenes": list(self.settings.scenes),
             "log": self.log.items[-30:],
         }

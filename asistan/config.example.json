@@ -51,5 +51,47 @@
     "shutdown",
     "reg delete",
     "Remove-Item -Recurse"
-  ]
+  ],
+  "devices": {
+    "isik": {
+      "name": "Oda ışığı",
+      "aliases": ["ışık", "isik", "lamba", "oda ışığı"],
+      "base_url": "http://192.168.1.50",
+      "on_path": "/relay/on",
+      "off_path": "/relay/off",
+      "toggle_path": "/relay/toggle",
+      "status_path": "/relay/status",
+      "method": "GET",
+      "token": "",
+      "timeout_sec": 3.0
+    }
+  },
+  "scenes": {
+    "oyun": {
+      "name": "Oyun modu",
+      "aliases": ["oyun modu", "game mode", "gaming"],
+      "steps": [
+        {"type": "device", "target": "isik", "state": "off"},
+        {"type": "open_app", "target": "valorant", "monitor": 2},
+        {"type": "volume", "target": "up"}
+      ]
+    },
+    "calisma": {
+      "name": "Çalışma modu",
+      "aliases": ["çalışma modu", "calisma modu", "work mode"],
+      "steps": [
+        {"type": "device", "target": "isik", "state": "on"},
+        {"type": "open_cursor", "target": ""},
+        {"type": "volume", "target": "down"}
+      ]
+    },
+    "uyku": {
+      "name": "Uyku modu",
+      "aliases": ["uyku modu", "sleep"],
+      "steps": [
+        {"type": "device", "target": "isik", "state": "off"},
+        {"type": "volume", "target": "mute"}
+      ]
+    }
+  }
 }
