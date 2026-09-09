@@ -96,8 +96,12 @@ bool pcOnline() {
   http.setTimeout(PC_HEALTH_TIMEOUT_MS);
   if (!http.begin(url)) return false;
   int code = http.GET();
+  String body = http.getString();
   http.end();
-  return code > 0 && code < 500;
+  // Yalnızca gerçek Jarvis health (200 + ok/role)
+  if (code != 200) return false;
+  body.toLowerCase();
+  return body.indexOf("\"ok\":true") >= 0 || body.indexOf("pc-jarvis") >= 0;
 }
 
 String forwardToPc(const String& text) {

@@ -51,7 +51,15 @@ function renderStatus(status) {
   els.log.innerHTML = "";
   (status.log || []).slice().reverse().forEach((item) => {
     const li = document.createElement("li");
-    li.innerHTML = `<span class="ts">${item.ts || ""}</span><span class="kind">${item.kind || ""}</span><span>${item.message || ""}</span>`;
+    const ts = document.createElement("span");
+    ts.className = "ts";
+    ts.textContent = item.ts || "";
+    const kind = document.createElement("span");
+    kind.className = "kind";
+    kind.textContent = item.kind || "";
+    const msg = document.createElement("span");
+    msg.textContent = item.message || "";
+    li.append(ts, kind, msg);
     els.log.appendChild(li);
   });
 }

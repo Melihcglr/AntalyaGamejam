@@ -44,6 +44,7 @@ class Hands:
         }
         self.safety = safety
         self.window_move_timeout_sec = window_move_timeout_sec
+        self.window_move_log: list[dict[str, Any]] = []
         if pyautogui is not None:
             pyautogui.FAILSAFE = True
 
@@ -83,12 +84,21 @@ class Hands:
 
     def _move_later(self, spec: AppSpec, monitor: int) -> None:
         title = spec.window_title or Path(spec.path).stem
-        move_window_to_monitor(
+        ok, msg = move_window_to_monitor(
             monitor=monitor,
             title_contains=title,
             process_name=spec.process_name,
             timeout_sec=self.window_move_timeout_sec,
         )
+        entry = {
+            "app": title,
+            "monitor": monitor,
+            "ok": ok,
+            "message": msg,
+        }
+        self.window_move_log.append(entry)
+        if len(self.window_move_log) > 20:
+            self.window_move_log = self.window_move_log[-20:]
 
     def open_url(self, url: str) -> ActionResult:
         if not url.startswith(("http://", "https://")):
@@ -145,8 +155,20 @@ class Hands:
         if decision.level == RiskLevel.BLOCKED:
             return ActionResult(False, decision.reason)
         if decision.needs_confirm:
-            if not confirm_token or not self.safety.consume_confirm(confirm_token):
-                token = f"risk-{abs(hash(command)) % 10_000_000}"
+            if not confirm_token or not self.safety.consume_confirm(confirm_token, action=command):
+                # Yanlış token veya farklı komut — yeniden silahlandır
+                if (
+                    confirm_token
+                    and self.safety.pending_action
+                    and self.safety.pending_action != command
+                ):
+                    return ActionResult(
+                        False,
+                        "Onay token'ı bu komut için değil. Komutu tekrar iste.",
+                        needs_confirm=True,
+                        confirm_token=None,
+                    )
+                token = self.safety.new_token()
                 self.safety.arm_confirm(token, command)
                 return ActionResult(
                     False,

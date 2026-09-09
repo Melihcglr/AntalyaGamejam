@@ -172,8 +172,25 @@ class OfflineAssistantTests(unittest.TestCase):
         self.assertTrue(r1["result"]["ok"])
         r2 = bot.handle_text("notlarımı göster")
         self.assertIn("süt al", r2["speech"])
+        # silme, listeden önce eşleşmeli
+        clear_plan = Brain(self.settings).plan("notları sil")
+        self.assertEqual(clear_plan["action"]["type"], "note_clear")
         r3 = bot.handle_text("notları temizle")
         self.assertTrue(r3["result"]["ok"])
+        self.assertEqual(Brain(self.settings).plan("notlarımı göster")["action"]["type"], "note_list")
+
+    def test_confirm_token_binds_command(self) -> None:
+        guard = SafetyGuard([], require_confirm_for_risky=True)
+        from core.hands import Hands
+
+        hands = Hands({"notepad": "notepad.exe"}, guard)
+        first = hands.run_shell("del C:\\temp\\a.txt")
+        self.assertTrue(first.needs_confirm)
+        token = first.confirm_token
+        # Aynı token ile farklı komut reddedilmeli
+        second = hands.run_shell("del C:\\temp\\b.txt", confirm_token=token)
+        self.assertFalse(second.ok)
+        self.assertIn("bu komut için değil", second.message.lower())
 
     def test_status_action(self) -> None:
         bot = self._bot()

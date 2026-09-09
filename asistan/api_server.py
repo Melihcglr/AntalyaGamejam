@@ -55,7 +55,10 @@ def create_app(assistant: Assistant | None = None) -> FastAPI:
 
     @app.post("/api/command")
     def command(body: CommandIn) -> dict[str, Any]:
-        return bot.handle_text(body.text, confirm_token=body.confirm_token)
+        try:
+            return bot.handle_text(body.text, confirm_token=body.confirm_token)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Komut işlenemedi: {exc}") from exc
 
     @app.post("/api/listen/start")
     def listen_start() -> dict[str, Any]:

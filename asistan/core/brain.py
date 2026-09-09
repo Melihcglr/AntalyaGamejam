@@ -324,12 +324,15 @@ class Brain:
                 "content": json_dumps({"utterance": user_text, "context": context or {}}),
             },
         ]
-        response = self._client.chat.completions.create(
-            model=self.settings.openai_model,
-            messages=messages,
-            temperature=0.2,
-            response_format={"type": "json_object"},
-        )
+        try:
+            response = self._client.chat.completions.create(
+                model=self.settings.openai_model,
+                messages=messages,
+                temperature=0.2,
+                response_format={"type": "json_object"},
+            )
+        except Exception as exc:
+            return plan("none", "", f"Beyin API hatası: {exc}")
         raw = response.choices[0].message.content or "{}"
         try:
             data = __import__("json").loads(raw)
@@ -357,23 +360,26 @@ class Brain:
             return "Görüntü analizi için API anahtarı gerekli."
         data = base64.b64encode(image_path.read_bytes()).decode("ascii")
         question = prompt or "Bu görüntüde ne var? Kısa Türkçe özetle."
-        response = self._client.chat.completions.create(
-            model=self.settings.openai_model,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": question},
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/png;base64,{data}"},
-                        },
-                    ],
-                }
-            ],
-            temperature=0.2,
-            max_tokens=300,
-        )
+        try:
+            response = self._client.chat.completions.create(
+                model=self.settings.openai_model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": question},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/png;base64,{data}"},
+                            },
+                        ],
+                    }
+                ],
+                temperature=0.2,
+                max_tokens=300,
+            )
+        except Exception as exc:
+            return f"Görüntü analizi başarısız: {exc}"
         return (response.choices[0].message.content or "").strip() or "Görüntü boş göründü."
 
     def _offline_plan(self, user_text: str) -> dict[str, Any]:
@@ -383,10 +389,13 @@ class Brain:
         if note_match:
             return plan("note_add", note_match.group(1).strip(), "Notu kaydettim.")
 
-        if any(k in text for k in ("notlarımı göster", "notları listele", "notlar")):
-            return plan("note_list", "", "Notlarına bakıyorum.")
-        if any(k in text for k in ("notları sil", "notları temizle")):
+        # Silme, listelemeden ÖNCE (yoksa "notlar" alt dizgesi yakalar)
+        if any(k in text for k in ("notları sil", "notları temizle", "notlarımı sil", "notlarımı temizle")):
             return plan("note_clear", "", "Notları temizliyorum.")
+        if any(k in text for k in ("notlarımı göster", "notları listele", "notlarımı listele")):
+            return plan("note_list", "", "Notlarına bakıyorum.")
+        if re.search(r"\bnotlar(?:ım)?\b", text) and "sil" not in text and "temizle" not in text:
+            return plan("note_list", "", "Notlarına bakıyorum.")
 
         if any(k in text for k in ("saat kaç", "tarih", "bugün günlerden")):
             return plan("time", "", "Zamanı söylüyorum.")

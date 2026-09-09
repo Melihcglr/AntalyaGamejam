@@ -272,5 +272,6 @@ class Assistant:
             "notes_count": len(self.memory.notes),
             "devices": list(self.settings.devices),
             "scenes": list(self.settings.scenes),
+            "window_moves": list(self.hands.window_move_log[-5:]),
             "log": self.log.items[-30:],
         }

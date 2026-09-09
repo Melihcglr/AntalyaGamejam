@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import secrets
 from dataclasses import dataclass
 from enum import Enum
 
@@ -43,16 +44,21 @@ class SafetyGuard:
             return SafetyDecision(RiskLevel.BLOCKED, f"Uygulama listede yok: {app_key}")
         return SafetyDecision(RiskLevel.SAFE, "İzin verildi")
 
+    def new_token(self) -> str:
+        return secrets.token_urlsafe(16)
+
     def arm_confirm(self, token: str, action: str) -> None:
         self._pending_token = token
         self._pending_action = action
 
-    def consume_confirm(self, token: str) -> bool:
-        ok = self._pending_token is not None and token == self._pending_token
-        if ok:
-            self._pending_token = None
-            self._pending_action = None
-        return ok
+    def consume_confirm(self, token: str, action: str | None = None) -> bool:
+        if self._pending_token is None or token != self._pending_token:
+            return False
+        if action is not None and self._pending_action is not None and action != self._pending_action:
+            return False
+        self._pending_token = None
+        self._pending_action = None
+        return True
 
     @property
     def pending_action(self) -> str | None:

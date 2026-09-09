@@ -19,7 +19,6 @@ class SceneRunner:
             return q, self.scenes[q]
         for key, spec in self.scenes.items():
             aliases = [a.lower() for a in spec.aliases] + [key, (spec.name or "").lower()]
-            # "oyun modu" / "oyun"
             if q in aliases:
                 return key, spec
             if any(a and (a in q or q in a) for a in aliases):
@@ -43,6 +42,7 @@ class SceneRunner:
             return ActionResult(False, f"Sahne yok: {name}")
         key, spec = found
         results: list[dict[str, Any]] = []
+        blocked_confirm = False
         for step in spec.steps:
             action = self._step_to_action(step)
             result = execute(action)
@@ -51,19 +51,42 @@ class SceneRunner:
                     "action": action,
                     "ok": result.ok,
                     "message": result.message,
+                    "needs_confirm": result.needs_confirm,
+                    "confirm_token": result.confirm_token,
                 }
             )
-            if not result.ok and not result.needs_confirm:
-                return ActionResult(
-                    False,
-                    f"{spec.name or key} yarım kaldı: {result.message}",
-                    data={"scene": key, "results": results},
-                )
+            # Onay bekleyen adımda dur; diğer hatalarda devam et (kısmi başarı)
+            if result.needs_confirm:
+                blocked_confirm = True
+                break
         ok_n = sum(1 for r in results if r["ok"])
+        total = len(spec.steps)
+        done = len(results)
+        label = spec.name or key
+        if blocked_confirm:
+            return ActionResult(
+                False,
+                f"{label} onay bekliyor ({ok_n}/{done} tamam, kalan durdu).",
+                data={"scene": key, "results": results, "partial": True},
+                needs_confirm=True,
+                confirm_token=results[-1].get("confirm_token"),
+            )
+        if ok_n == total:
+            return ActionResult(
+                True,
+                f"{label} aktif ({ok_n}/{total} adım).",
+                data={"scene": key, "results": results},
+            )
+        if ok_n == 0:
+            return ActionResult(
+                False,
+                f"{label} başarısız: " + (results[-1]["message"] if results else "adım yok"),
+                data={"scene": key, "results": results, "partial": True},
+            )
         return ActionResult(
             True,
-            f"{spec.name or key} aktif ({ok_n}/{len(results)} adım).",
-            data={"scene": key, "results": results},
+            f"{label} kısmen uygulandı ({ok_n}/{total} adım). Bazı adımlar başarısız.",
+            data={"scene": key, "results": results, "partial": True},
         )
 
     def _step_to_action(self, step: SceneStep) -> dict[str, Any]:
