@@ -48,7 +48,14 @@ class Settings(BaseModel):
     # ESP hub / WOL
     pc_mac: str = ""
     wol_broadcast: str = "255.255.255.255"
-    esp_hub_url: str = ""  # örn. http://192.168.1.50 — bilgilendirme / sağlık
+    esp_hub_url: str = ""  # örn. http://192.168.1.50:8788
+    # Güvenlik / ses / keşif
+    api_token: str = ""  # boşsa auth kapalı; doluysa Bearer / X-Jarvis-Token
+    stt_backend: str = "auto"  # auto | google | vosk
+    stt_model_path: str = ""  # Vosk model klasörü (ör. ~/vosk-model-tr)
+    push_to_talk: bool = False
+    esp_mdns_name: str = "jarvis-hub.local"
+    esp_http_port: int = 8788
 
     @field_validator("allowed_apps", mode="before")
     @classmethod

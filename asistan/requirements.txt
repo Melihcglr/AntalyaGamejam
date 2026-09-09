@@ -14,3 +14,7 @@ Pillow>=10.4.0
 pyautogui>=0.9.54
 psutil>=6.0.0
 python-multipart>=0.0.12
+# İsteğe bağlı: sistem tepsisi (Windows)
+pystray>=0.19.5
+# İsteğe bağlı: yerel STT (model ayrıca indirilir, örn. vosk-model-small-tr)
+# vosk>=0.3.45

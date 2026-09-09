@@ -475,7 +475,42 @@ class Brain:
         if query:
             return plan("search", query, f"Google'da araştırıyorum: {query}")
 
-        if "sesi kapat" in text or "sessiz" in text or "mute" in text:
+        # Mikrofon / PTT — hoparlör volume'dan önce
+        if any(
+            k in text
+            for k in (
+                "mikrofonu kapat",
+                "mikrofon kapat",
+                "mic kapat",
+                "dinlemeyi sustur",
+                "mic mute",
+                "mikrofon mute",
+            )
+        ):
+            return plan("mic_mute", "", "Mikrofonu kapatıyorum.")
+        if any(
+            k in text
+            for k in (
+                "mikrofonu aç",
+                "mikrofon aç",
+                "mic aç",
+                "dinlemeyi aç",
+                "mic unmute",
+                "mikrofon unmute",
+            )
+        ):
+            return plan("mic_unmute", "", "Mikrofonu açıyorum.")
+        if any(k in text for k in ("push to talk aç", "ptt aç", "bas konuş aç", "push-to-talk aç")):
+            return plan("push_to_talk", "on", "Push-to-talk açıldı.")
+        if any(
+            k in text
+            for k in ("push to talk kapat", "ptt kapat", "bas konuş kapat", "push-to-talk kapat")
+        ):
+            return plan("push_to_talk", "off", "Push-to-talk kapatıldı.")
+        if any(k in text for k in ("cihaz sağlığı", "esp sağlığı", "ip uyarısı", "cihazları kontrol")):
+            return plan("device_health", "", "Cihaz bağlantılarını kontrol ediyorum.")
+
+        if "sesi kapat" in text or "sessiz" in text or text.strip() in {"mute", "sustur"}:
             return plan("volume", "mute", "Sesi kapatıyorum.")
         if "sesi aç" in text or "ses artır" in text or "ses yükselt" in text:
             return plan("volume", "up", "Sesi yükseltiyorum.")

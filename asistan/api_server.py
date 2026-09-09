@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from core.assistant import Assistant
+from core.auth import ApiTokenMiddleware, generate_token
 from core.config import Settings
 
 
@@ -22,16 +23,32 @@ class SettingsPatch(BaseModel):
     speak_responses: bool | None = None
     wake_word: str | None = None
     openai_api_key: str | None = None
+    api_token: str | None = None
+    push_to_talk: bool | None = None
+    stt_backend: str | None = None
+    stt_model_path: str | None = None
+    esp_mdns_name: str | None = None
+    esp_http_port: int | None = None
+
+
+class MuteIn(BaseModel):
+    muted: bool = True
+
+
+class PttIn(BaseModel):
+    active: bool = False
 
 
 def create_app(assistant: Assistant | None = None) -> FastAPI:
     settings = Settings.load()
     bot = assistant or Assistant(settings)
-    app = FastAPI(title=f"{settings.assistant_name} Kontrol", version="0.2.0")
+    app = FastAPI(title=f"{bot.settings.assistant_name} Kontrol", version="0.3.0")
     root = Path(__file__).resolve().parent
     ui_dir = root / "ui"
     captures = root / "captures"
     captures.mkdir(exist_ok=True)
+
+    app.add_middleware(ApiTokenMiddleware, token_getter=lambda: bot.settings.api_token)
 
     app.mount("/static", StaticFiles(directory=ui_dir), name="static")
     app.mount("/captures", StaticFiles(directory=captures), name="captures")
@@ -47,6 +64,7 @@ def create_app(assistant: Assistant | None = None) -> FastAPI:
             "role": "pc-jarvis",
             "name": bot.settings.assistant_name,
             "listening": bot.listening,
+            "auth_required": bool(bot.settings.api_token),
         }
 
     @app.get("/api/status")
@@ -72,6 +90,31 @@ def create_app(assistant: Assistant | None = None) -> FastAPI:
     def listen_stop() -> dict[str, Any]:
         bot.stop_listening()
         return {"ok": True, "listening": False}
+
+    @app.post("/api/listen/mute")
+    def listen_mute(body: MuteIn | None = None) -> dict[str, Any]:
+        muted = True if body is None else body.muted
+        result = bot.set_mic_muted(muted)
+        return {"ok": result.ok, "muted": muted, "message": result.message}
+
+    @app.post("/api/listen/ptt")
+    def listen_ptt(body: PttIn) -> dict[str, Any]:
+        result = bot.set_ptt_active(body.active)
+        if not result.ok:
+            raise HTTPException(status_code=400, detail=result.message)
+        return {"ok": True, "active": body.active, "message": result.message}
+
+    @app.post("/api/token/generate")
+    def token_generate() -> dict[str, Any]:
+        token = generate_token()
+        bot.settings.api_token = token
+        # ESP cihaz token'larını senkronla (boş olanlar)
+        for spec in bot.settings.devices.values():
+            if not spec.token:
+                spec.token = token
+        bot.settings.save()
+        bot.iot = type(bot.iot)(bot.settings.devices)
+        return {"ok": True, "api_token": token}
 
     @app.post("/api/camera")
     def camera() -> dict[str, Any]:
@@ -124,6 +167,11 @@ def create_app(assistant: Assistant | None = None) -> FastAPI:
         bot.settings.save()
         if "openai_api_key" in data:
             bot.brain = type(bot.brain)(bot.settings)
+        if "push_to_talk" in data and bot.ear:
+            bot.ear.set_push_to_talk(bool(data["push_to_talk"]))
+        if any(k in data for k in ("stt_backend", "stt_model_path")):
+            # Sonraki ensure_voice yenilesin
+            bot.ear = None
         return {"ok": True, "settings": bot.settings.model_dump()}
 
     app.state.assistant = bot

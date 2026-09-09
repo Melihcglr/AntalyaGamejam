@@ -28,11 +28,14 @@ Doldur:
 - `PC_HOST` = PC’nin yerel IP’si (sabit IP önerilir)
 - `PC_PORT` = `8787`
 - `PC_MAC` = PC MAC (WOL için BIOS’ta Wake-on-LAN açık olsun)
+- `AUTH_TOKEN` = ESP koruma (PC `api_token` ile aynı olabilir)
+- `PC_API_TOKEN` = PC’ye giderken Bearer token
 
-Eski sadece-röle: `jarvis_relay/` (hub yok).
+Eski sadece-röle: `jarvis_relay/` (hub yok) — `AUTH_TOKEN` + mDNS `jarvis-relay.local`.
 
 **Port:** ESP HTTP **8788** (Jarvis tarama bunu tercih eder; 80 de taranır).
-Router’da ESP’ye sabit IP ver.
+**mDNS:** `http://jarvis-hub.local:8788` — DHCP IP değişince de bulunur.
+Router’da ESP’ye sabit IP vermek hâlâ iyi fikir.
 
 ## 2) PC Jarvis
 
@@ -40,28 +43,35 @@ Router’da ESP’ye sabit IP ver.
 ```json
 "host": "0.0.0.0",
 "port": 8787,
+"api_token": "UZUN-GIZLI-TOKEN",
 "pc_mac": "AA:BB:CC:DD:EE:FF",
-"esp_hub_url": "http://ESP_IP:8788",
+"esp_hub_url": "http://192.168.1.50:8788",
+"esp_mdns_name": "jarvis-hub.local",
+"esp_http_port": 8788,
 "devices": {
-  "isik": { "base_url": "http://ESP_IP:8788", "aliases": ["ışık", "lamba"] }
+  "isik": { "base_url": "http://192.168.1.50:8788", "aliases": ["ışık", "lamba"], "token": "UZUN-GIZLI-TOKEN" }
 }
 ```
 
 `0.0.0.0` şart — yoksa ESP PC’ye ulaşamaz.
 
-Windows açılışında otomatik: `asistan/windows_autostart.bat` dosyasını Görev Zamanlayıcı’ya veya Startup klasörüne ekle.
+Windows açılışında: `windows_autostart.bat` → `jarvis_watchdog.bat` (çökünce yeniden; `--tray`).
 
 ## 3) Komut yollama (ESP üzerinden)
 
 ```
-GET  http://ESP_IP:8788/api/command?text=isigi%20kapat
+GET  http://ESP_IP:8788/api/command?text=isigi%20kapat&token=TOKEN
 POST http://ESP_IP:8788/api/command  {"text":"oyun modu"}
+     Header: Authorization: Bearer TOKEN
 GET  http://ESP_IP:8788/health
+GET  http://jarvis-hub.local:8788/health
 ```
 
 PC açıkken `oyun modu` Jarvis’te çalışır (Valorant + ışık).
 PC kapalıyken aynı istek ESP’de ışık/WOL ile sınırlı kalır.
 
-## Güvenlik notu
+## Güvenlik
 
-Hub şu an LAN içi açık HTTP. İleride token / sadece yerel subnet eklenebilir.
+- `/health` keşif için açıktır.
+- `/relay/*` ve `/api/command` — `AUTH_TOKEN` doluysa token ister.
+- Panelden **Üret** veya `POST /api/token/generate` ile PC token oluştur; ESP’ye yaz.

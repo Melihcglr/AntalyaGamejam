@@ -15,6 +15,14 @@ baslat.bat
 
 Kontrol paneli: `http://127.0.0.1:8787`
 
+## Olmazsa olmaz (yeni)
+
+- **API token:** `config.json` → `api_token` (panelden Üret). ESP `AUTH_TOKEN` / cihaz `token` aynı olsun.
+- **Mikrofon mute / PTT:** `mikrofonu kapat`, panel Mute / PTT; konuşurken mic otomatik durur.
+- **Yerel STT:** `stt_backend: auto|google|vosk` + `stt_model_path` (Vosk model klasörü).
+- **Tray + watchdog:** `python main.py --tray` · açılışta `windows_autostart.bat` → `jarvis_watchdog.bat`.
+- **mDNS / IP uyarısı:** ESP `jarvis-hub.local`; status `device_warnings` düşen IP’leri söyler.
+
 ## Komut örnekleri
 
 - `bilgisayar aç` (WOL / ESP hub)

@@ -1,14 +1,23 @@
+const TOKEN_KEY = "jarvis_api_token";
+
 const els = {
   name: document.getElementById("assistantName"),
   listen: document.getElementById("listenState"),
   brain: document.getElementById("brainState"),
   wake: document.getElementById("wakeState"),
   notes: document.getElementById("notesState"),
+  mic: document.getElementById("micState"),
   form: document.getElementById("cmdForm"),
   input: document.getElementById("cmdInput"),
   reply: document.getElementById("reply"),
+  warnings: document.getElementById("deviceWarnings"),
   log: document.getElementById("logList"),
+  apiToken: document.getElementById("apiToken"),
+  btnSaveToken: document.getElementById("btnSaveToken"),
+  btnGenToken: document.getElementById("btnGenToken"),
   btnListen: document.getElementById("btnListen"),
+  btnMute: document.getElementById("btnMute"),
+  btnPtt: document.getElementById("btnPtt"),
   btnCamera: document.getElementById("btnCamera"),
   btnScreen: document.getElementById("btnScreen"),
   btnDescribe: document.getElementById("btnDescribe"),
@@ -22,12 +31,31 @@ const els = {
 
 let listening = false;
 let requireWake = false;
+let micMuted = false;
+let pushToTalk = false;
 let confirmToken = null;
+
+if (els.apiToken) {
+  els.apiToken.value = localStorage.getItem(TOKEN_KEY) || "";
+}
+
+function authHeaders() {
+  const token = (els.apiToken && els.apiToken.value.trim()) || localStorage.getItem(TOKEN_KEY) || "";
+  if (!token) return {};
+  return {
+    Authorization: `Bearer ${token}`,
+    "X-Jarvis-Token": token,
+  };
+}
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+      ...(options.headers || {}),
+    },
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -41,14 +69,31 @@ function renderStatus(status) {
   els.name.textContent = (status.name || "JARVIS").toUpperCase();
   listening = !!status.listening;
   requireWake = !!status.require_wake_word;
+  micMuted = !!status.mic_muted;
+  pushToTalk = !!status.push_to_talk;
   els.listen.textContent = listening ? "açık" : "kapalı";
   els.brain.textContent = status.brain_ready ? "API bağlı" : "çevrimdışı kurallar";
   els.wake.textContent = requireWake ? (status.wake_word || "zorunlu") : "serbest";
   els.notes.textContent = String(status.notes_count ?? 0);
+  if (els.mic) {
+    els.mic.textContent = micMuted ? "mute" : pushToTalk ? "PTT" : "hazır";
+  }
   els.btnListen.textContent = listening ? "Dinlemeyi kapat" : "Dinlemeyi aç";
   els.btnListen.classList.toggle("active", listening);
   els.btnWake.textContent = requireWake ? "Wake: zorunlu" : "Wake: serbest";
   els.btnWake.classList.toggle("active", requireWake);
+  if (els.btnMute) {
+    els.btnMute.textContent = micMuted ? "Mikrofon aç" : "Mikrofon mute";
+    els.btnMute.classList.toggle("active", micMuted);
+  }
+  if (els.btnPtt) {
+    els.btnPtt.classList.toggle("active", pushToTalk);
+    els.btnPtt.textContent = pushToTalk ? "PTT basılı tut" : "PTT (basılı tut)";
+  }
+  if (els.warnings) {
+    const warns = status.device_warnings || [];
+    els.warnings.textContent = warns.length ? warns.join(" · ") : "";
+  }
 
   els.log.innerHTML = "";
   (status.log || []).slice().reverse().forEach((item) => {
@@ -74,6 +119,23 @@ async function refresh() {
     els.reply.textContent = String(err.message || err);
   }
 }
+
+els.btnSaveToken?.addEventListener("click", () => {
+  localStorage.setItem(TOKEN_KEY, els.apiToken.value.trim());
+  els.reply.textContent = "Token kaydedildi (bu tarayıcı).";
+});
+
+els.btnGenToken?.addEventListener("click", async () => {
+  try {
+    const data = await api("/api/token/generate", { method: "POST", body: "{}" });
+    els.apiToken.value = data.api_token || "";
+    localStorage.setItem(TOKEN_KEY, els.apiToken.value);
+    els.reply.textContent = "Yeni API token üretildi. ESP AUTH_TOKEN ile aynı yap.";
+    await refresh();
+  } catch (err) {
+    els.reply.textContent = String(err.message || err);
+  }
+});
 
 els.form.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -110,6 +172,56 @@ els.btnListen.addEventListener("click", async () => {
     els.reply.textContent = String(err.message || err);
   }
 });
+
+els.btnMute?.addEventListener("click", async () => {
+  try {
+    await api("/api/listen/mute", {
+      method: "POST",
+      body: JSON.stringify({ muted: !micMuted }),
+    });
+    await refresh();
+  } catch (err) {
+    els.reply.textContent = String(err.message || err);
+  }
+});
+
+(function bindPtt() {
+  if (!els.btnPtt) return;
+  const down = async () => {
+    try {
+      if (!pushToTalk) {
+        await api("/api/settings", {
+          method: "PATCH",
+          body: JSON.stringify({ push_to_talk: true }),
+        });
+        pushToTalk = true;
+      }
+      await api("/api/listen/ptt", { method: "POST", body: JSON.stringify({ active: true }) });
+      els.btnPtt.classList.add("active");
+    } catch (err) {
+      els.reply.textContent = String(err.message || err);
+    }
+  };
+  const up = async () => {
+    try {
+      await api("/api/listen/ptt", { method: "POST", body: JSON.stringify({ active: false }) });
+      els.btnPtt.classList.remove("active");
+    } catch (err) {
+      els.reply.textContent = String(err.message || err);
+    }
+  };
+  els.btnPtt.addEventListener("mousedown", down);
+  els.btnPtt.addEventListener("mouseup", up);
+  els.btnPtt.addEventListener("mouseleave", up);
+  els.btnPtt.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    down();
+  });
+  els.btnPtt.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    up();
+  });
+})();
 
 els.btnCamera.addEventListener("click", async () => {
   els.reply.textContent = "Kamera…";

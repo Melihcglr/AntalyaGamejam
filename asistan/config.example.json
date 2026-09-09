@@ -9,18 +9,20 @@
   "openai_model": "gpt-4o-mini",
   "host": "0.0.0.0",
   "port": 8787,
-  "pc_mac": "AA:BB:CC:DD:EE:FF",
-  "wol_broadcast": "255.255.255.255",
-  "esp_hub_url": "http://192.168.1.50:8788",
   "require_confirm_for_risky": true,
   "speak_responses": true,
   "window_move_timeout_sec": 60,
   "workspace_root": "~/JarvisWorkspace",
   "cursor_cli": "cursor",
-  "projects": {
-    "asistan": ".",
-    "ortalik": "~/projects/ortalik"
-  },
+  "pc_mac": "AA:BB:CC:DD:EE:FF",
+  "wol_broadcast": "255.255.255.255",
+  "esp_hub_url": "http://192.168.1.50:8788",
+  "api_token": "",
+  "stt_backend": "auto",
+  "stt_model_path": "",
+  "push_to_talk": false,
+  "esp_mdns_name": "jarvis-hub.local",
+  "esp_http_port": 8788,
   "allowed_apps": {
     "notepad": "notepad.exe",
     "explorer": "explorer.exe",
@@ -55,10 +57,19 @@
     "reg delete",
     "Remove-Item -Recurse"
   ],
+  "projects": {
+    "asistan": ".",
+    "ortalik": "~/projects/ortalik"
+  },
   "devices": {
     "isik": {
       "name": "Oda ışığı",
-      "aliases": ["ışık", "isik", "lamba", "oda ışığı"],
+      "aliases": [
+        "ışık",
+        "isik",
+        "lamba",
+        "oda ışığı"
+      ],
       "base_url": "http://192.168.1.50:8788",
       "on_path": "/relay/on",
       "off_path": "/relay/off",
@@ -72,28 +83,67 @@
   "scenes": {
     "oyun": {
       "name": "Oyun modu",
-      "aliases": ["oyun modu", "game mode", "gaming"],
+      "aliases": [
+        "oyun modu",
+        "game mode",
+        "gaming"
+      ],
       "steps": [
-        {"type": "device", "target": "isik", "state": "off"},
-        {"type": "open_app", "target": "valorant", "monitor": 2},
-        {"type": "volume", "target": "up"}
+        {
+          "type": "device",
+          "target": "isik",
+          "state": "off"
+        },
+        {
+          "type": "open_app",
+          "target": "valorant",
+          "monitor": 2
+        },
+        {
+          "type": "volume",
+          "target": "up"
+        }
       ]
     },
     "calisma": {
       "name": "Çalışma modu",
-      "aliases": ["çalışma modu", "calisma modu", "work mode"],
+      "aliases": [
+        "çalışma modu",
+        "calisma modu",
+        "work mode"
+      ],
       "steps": [
-        {"type": "device", "target": "isik", "state": "on"},
-        {"type": "open_cursor", "target": ""},
-        {"type": "volume", "target": "down"}
+        {
+          "type": "device",
+          "target": "isik",
+          "state": "on"
+        },
+        {
+          "type": "open_cursor",
+          "target": ""
+        },
+        {
+          "type": "volume",
+          "target": "down"
+        }
       ]
     },
     "uyku": {
       "name": "Uyku modu",
-      "aliases": ["uyku modu", "sleep"],
+      "aliases": [
+        "uyku modu",
+        "sleep"
+      ],
       "steps": [
-        {"type": "device", "target": "isik", "state": "off"},
-        {"type": "volume", "target": "mute"}
+        {
+          "type": "device",
+          "target": "isik",
+          "state": "off"
+        },
+        {
+          "type": "volume",
+          "target": "mute"
+        }
       ]
     }
   }

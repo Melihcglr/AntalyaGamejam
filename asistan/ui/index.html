@@ -34,6 +34,10 @@
         <span class="label">Notlar</span>
         <strong id="notesState">0</strong>
       </div>
+      <div class="meter">
+        <span class="label">Mikrofon</span>
+        <strong id="micState">—</strong>
+      </div>
     </section>
 
     <section class="command" aria-label="Komut">
@@ -44,8 +48,16 @@
           <button type="submit">Gönder</button>
         </div>
       </form>
+      <div class="row token-row">
+        <label for="apiToken">API token</label>
+        <input id="apiToken" type="password" autocomplete="off" placeholder="config api_token (LAN koruması)" />
+        <button type="button" id="btnSaveToken" class="ghost">Kaydet</button>
+        <button type="button" id="btnGenToken" class="ghost">Üret</button>
+      </div>
       <div class="actions">
         <button type="button" id="btnListen" class="ghost">Dinlemeyi aç</button>
+        <button type="button" id="btnMute" class="ghost">Mikrofon mute</button>
+        <button type="button" id="btnPtt" class="ghost">PTT basılı tut</button>
         <button type="button" id="btnCamera" class="ghost">Kamera</button>
         <button type="button" id="btnScreen" class="ghost">Ekran</button>
         <button type="button" id="btnDescribe" class="ghost">Ekranı açıkla</button>
@@ -57,6 +69,7 @@
         <button type="button" id="btnAdopt" class="ghost">ESP bağla</button>
       </div>
       <p class="reply" id="reply" aria-live="polite"></p>
+      <p class="warnings" id="deviceWarnings" aria-live="polite"></p>
     </section>
 
     <section class="log" aria-label="Olay günlüğü">

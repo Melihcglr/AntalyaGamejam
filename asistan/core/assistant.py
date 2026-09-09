@@ -8,6 +8,7 @@ from typing import Any
 from .brain import Brain, local_time_speech, search_url, strip_wake
 from .coder import Coder
 from .config import Settings
+from .device_health import check_devices
 from .ear import Ear
 from .eye import Eye
 from .hands import ActionResult, Hands
@@ -61,12 +62,57 @@ class Assistant:
         self.log = EventLog()
         self._lock = threading.Lock()
         self._last_scan: list[dict[str, Any]] = []
+        self._mic_muted = False
 
     def ensure_voice(self) -> None:
         if self.ear is None:
-            self.ear = Ear(language=self.settings.language)
+            self.ear = Ear(
+                language=self.settings.language,
+                stt_backend=self.settings.stt_backend,
+                stt_model_path=self.settings.stt_model_path,
+                push_to_talk=self.settings.push_to_talk,
+            )
+        else:
+            self.ear.set_push_to_talk(self.settings.push_to_talk)
+            self.ear.stt_backend = self.settings.stt_backend
+            self.ear.stt_model_path = self.settings.stt_model_path
+        self.ear.set_muted(self._mic_muted)
         if self.mouth is None and self.settings.speak_responses:
-            self.mouth = Mouth()
+            self.mouth = Mouth(
+                on_speak_start=self._on_speak_start,
+                on_speak_end=self._on_speak_end,
+            )
+
+    def _on_speak_start(self) -> None:
+        if self.ear:
+            self.ear.pause_for_speech()
+
+    def _on_speak_end(self) -> None:
+        if self.ear:
+            self.ear.resume_after_speech()
+
+    def set_mic_muted(self, muted: bool) -> ActionResult:
+        self._mic_muted = bool(muted)
+        if self.ear:
+            self.ear.set_muted(self._mic_muted)
+        self.log.add("system", "Mikrofon kapatıldı." if muted else "Mikrofon açıldı.")
+        return ActionResult(True, "Mikrofon kapatıldı." if muted else "Mikrofon açıldı.")
+
+    def set_push_to_talk(self, enabled: bool) -> ActionResult:
+        self.settings.push_to_talk = enabled
+        self.settings.save()
+        if self.ear:
+            self.ear.set_push_to_talk(enabled)
+        msg = "Push-to-talk açıldı." if enabled else "Push-to-talk kapatıldı."
+        self.log.add("system", msg)
+        return ActionResult(True, msg)
+
+    def set_ptt_active(self, active: bool) -> ActionResult:
+        if not self.settings.push_to_talk:
+            return ActionResult(False, "Push-to-talk kapalı.")
+        if self.ear:
+            self.ear.set_ptt_active(active)
+        return ActionResult(True, "PTT basılı." if active else "PTT bırakıldı.")
 
     def start_listening(self) -> None:
         self.ensure_voice()
@@ -291,9 +337,52 @@ class Assistant:
         if kind == "note_clear":
             n = self.memory.clear_notes()
             return ActionResult(True, f"{n} not silindi.")
+        if kind == "mic_mute":
+            return self.set_mic_muted(True)
+        if kind == "mic_unmute":
+            return self.set_mic_muted(False)
+        if kind == "push_to_talk":
+            enabled = (action.get("state") or target or "on").lower() in {
+                "on",
+                "aç",
+                "ac",
+                "1",
+                "true",
+                "enable",
+            }
+            if (action.get("state") or target or "").lower() in {
+                "off",
+                "kapat",
+                "0",
+                "false",
+                "disable",
+            }:
+                enabled = False
+            return self.set_push_to_talk(enabled)
+        if kind == "device_health":
+            report = check_devices(
+                self.settings.devices,
+                mdns_name=self.settings.esp_mdns_name,
+                preferred_port=self.settings.esp_http_port,
+            )
+            warnings = report.get("warnings") or []
+            if not warnings:
+                return ActionResult(True, "Cihazlar erişilebilir.", data=report)
+            return ActionResult(
+                True,
+                "Cihaz uyarısı: " + " | ".join(warnings),
+                data=report,
+            )
         return ActionResult(False, f"Bilinmeyen eylem: {kind}")
 
     def status(self) -> dict[str, Any]:
+        mic_muted = bool(self._mic_muted or (self.ear and self.ear.muted))
+        stt_engine = self.ear.engine_name if self.ear else self.settings.stt_backend
+        health = check_devices(
+            self.settings.devices,
+            mdns_name=self.settings.esp_mdns_name,
+            preferred_port=self.settings.esp_http_port,
+        )
         return {
             "name": self.settings.assistant_name,
             "listening": self.listening,
@@ -308,4 +397,10 @@ class Assistant:
             "last_scan_count": len(self._last_scan),
             "window_moves": list(self.hands.window_move_log[-5:]),
             "log": self.log.items[-30:],
+            "mic_muted": mic_muted,
+            "push_to_talk": self.settings.push_to_talk,
+            "stt_engine": stt_engine,
+            "api_token_required": bool(self.settings.api_token),
+            "device_health": health,
+            "device_warnings": health.get("warnings") or [],
         }

@@ -158,7 +158,20 @@ button.ghost.active {
   margin-top: 0.9rem;
 }
 
-.reply {
+.warnings {
+  margin-top: 0.75rem;
+  color: #d4a017;
+  font-size: 0.9rem;
+  min-height: 1.2em;
+}
+.token-row {
+  margin: 0.75rem 0 1rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+.token-row input {
+  flex: 1;
+}
   min-height: 1.5rem;
   margin: 1.1rem 0 0;
   color: var(--cyan);

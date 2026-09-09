@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import sys
+import threading
 from pathlib import Path
 
 import uvicorn
@@ -18,6 +20,7 @@ def ensure_config() -> Settings:
         settings.save(config_path)
         print(f"config.json oluşturuldu: {config_path}")
         print("OpenAI anahtarını config.json içine yazabilirsin (opsiyonel).")
+        print("LAN güvenliği için api_token üret: panelden veya POST /api/token/generate")
     return Settings.load(config_path)
 
 
@@ -27,6 +30,7 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=None)
     parser.add_argument("--cli", action="store_true", help="Sadece metin CLI")
     parser.add_argument("--listen", action="store_true", help="CLI + mikrofon döngüsü")
+    parser.add_argument("--tray", action="store_true", help="Sistem tepsisi (Windows)")
     args = parser.parse_args()
 
     settings = ensure_config()
@@ -64,7 +68,32 @@ def main() -> None:
     app = create_app(bot)
     host = args.host or settings.host
     port = args.port or settings.port
-    print(f"Kontrol paneli: http://{host}:{port}")
+    print(f"Kontrol paneli: http://127.0.0.1:{port} (bind {host})")
+
+    if args.tray:
+        try:
+            from core.tray import start_tray_thread
+        except Exception as exc:
+            print(f"Tray yüklenemedi: {exc}")
+        else:
+
+            def _quit() -> None:
+                # uvicorn'u nazikçe kapatmak zor; process çıksın
+                threading.Timer(0.2, lambda: sys.exit(0)).start()
+
+            start_tray_thread(
+                name=settings.assistant_name,
+                port=port,
+                on_quit=_quit,
+                on_listen_toggle=lambda: (
+                    bot.stop_listening() if bot.listening else bot.start_listening()
+                ),
+                on_mute_toggle=lambda: bot.set_mic_muted(
+                    not (bot.ear.muted if bot.ear else False)
+                ),
+            )
+            print("Sistem tepsisi aktif.")
+
     uvicorn.run(app, host=host, port=port, log_level="info")
 
 

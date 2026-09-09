@@ -316,5 +316,66 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(status["require_wake_word"])
 
 
+class MustHaveTests(unittest.TestCase):
+    def test_mic_and_ptt_intents(self) -> None:
+        brain = Brain(Settings())
+        self.assertEqual(brain.plan("mikrofonu kapat")["action"]["type"], "mic_mute")
+        self.assertEqual(brain.plan("mikrofon mute")["action"]["type"], "mic_mute")
+        self.assertEqual(brain.plan("mikrofonu aç")["action"]["type"], "mic_unmute")
+        self.assertEqual(brain.plan("ptt aç")["action"]["type"], "push_to_talk")
+        self.assertEqual(brain.plan("cihaz sağlığı")["action"]["type"], "device_health")
+        # genel mute artık hoparlör; mikrofon ayrı
+        self.assertEqual(brain.plan("mute")["action"]["type"], "volume")
+
+    def test_mic_mute_without_speechrecognition(self) -> None:
+        bot = Assistant(Settings(speak_responses=False))
+        result = bot.handle_text("mikrofonu kapat")
+        self.assertEqual(result["action"]["type"], "mic_mute")
+        self.assertTrue(result["result"]["ok"])
+        self.assertTrue(bot.status()["mic_muted"])
+        result = bot.handle_text("mikrofonu aç")
+        self.assertFalse(bot.status()["mic_muted"])
+
+    def test_api_token_middleware(self) -> None:
+        from fastapi.testclient import TestClient
+        from api_server import create_app
+
+        bot = Assistant(Settings(api_token="gizli-token", speak_responses=False))
+        client = TestClient(create_app(bot))
+        self.assertEqual(client.get("/api/health").status_code, 200)
+        self.assertEqual(client.get("/api/status").status_code, 401)
+        ok = client.get("/api/status", headers={"Authorization": "Bearer gizli-token"})
+        self.assertEqual(ok.status_code, 200)
+        self.assertIn("mic_muted", ok.json())
+        gen = client.post(
+            "/api/token/generate",
+            headers={"Authorization": "Bearer gizli-token"},
+        )
+        self.assertEqual(gen.status_code, 200)
+        self.assertTrue(gen.json().get("api_token"))
+
+    def test_device_health_helpers(self) -> None:
+        from core.device_health import check_devices, resolve_host
+        from core.iot_models import DeviceSpec
+
+        self.assertIsNone(resolve_host(""))
+        report = check_devices({})
+        self.assertEqual(report["warnings"], [])
+        report = check_devices(
+            {
+                "isik": DeviceSpec(
+                    name="Işık",
+                    aliases=["ışık"],
+                    base_url="http://127.0.0.1:9",
+                )
+            },
+            mdns_name="",
+            preferred_port=8788,
+        )
+        self.assertIn("isik", report["devices"])
+        self.assertFalse(report["devices"]["isik"]["ok"])
+        self.assertTrue(report["warnings"])
+
+
 if __name__ == "__main__":
     unittest.main()

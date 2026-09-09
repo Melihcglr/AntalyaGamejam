@@ -1,40 +1,39 @@
 /*
  * Jarvis ESP32 Hub
  * ----------------
- * Aynı WiFi'de PC (Jarvis) açıksa komutu PC'ye iletir.
- * PC kapalıysa yerelde işler: ışık rölesi + Wake-on-LAN (bilgisayar aç).
+ * PC (Jarvis) aynı WiFi'de açıksa komutu PC'ye iletir.
+ * PC kapalıysa yerelde işler: ışık rölesi + Wake-on-LAN.
  *
- * Endpointler (port 8788):
- *   GET  /health
+ * Port 8788:
+ *   GET  /health                 (auth yok — keşif)
  *   GET  /relay/on|off|toggle|status
- *   POST /api/command   JSON: {"text":"ışığı aç"}
- *   GET  /api/command?text=isigi+ac
+ *   GET/POST /api/command
  *
- * Kurulum: WIFI_*, PC_HOST, PC_PORT, PC_MAC doldur.
- * Jarvis tarama varsayılanı: http://ESP_IP:8788
+ * AUTH_TOKEN doluysa relay/command için Bearer veya X-Jarvis-Token gerekir.
+ * mDNS: http://jarvis-hub.local:8788
  */
 
 #include <WiFi.h>
 #include <WebServer.h>
 #include <HTTPClient.h>
 #include <WiFiUdp.h>
+#include <ESPmDNS.h>
 
 const char* WIFI_SSID = "WIFI_ADI";
 const char* WIFI_PASS = "WIFI_SIFRE";
 
-// Jarvis PC (Windows) — config.json host 0.0.0.0 olmalı
 const char* PC_HOST = "192.168.1.20";
 const uint16_t PC_PORT = 8787;
 const uint16_t PC_HEALTH_TIMEOUT_MS = 800;
-
-// Wake-on-LAN — PC Ethernet/WiFi MAC (AA:BB:CC:DD:EE:FF)
+const char* PC_API_TOKEN = "";  // PC config.api_token ile aynı
 const char* PC_MAC = "AA:BB:CC:DD:EE:FF";
+
+const char* AUTH_TOKEN = "";    // ESP koruma; boş = açık LAN
+const char* MDNS_HOSTNAME = "jarvis-hub";
 
 const int RELAY_PIN = 5;
 const bool RELAY_ACTIVE_LOW = true;
-
-// İsteğe bağlı: anakart power-SW rölesi (WOL yoksa)
-const int PC_POWER_RELAY_PIN = -1;  // yoksa -1
+const int PC_POWER_RELAY_PIN = -1;
 const bool PC_POWER_ACTIVE_LOW = true;
 const uint16_t PC_POWER_PULSE_MS = 400;
 
@@ -50,6 +49,26 @@ String jsonEscape(const String& s) {
     o += c;
   }
   return o;
+}
+
+bool tokenOk() {
+  if (AUTH_TOKEN == nullptr || strlen(AUTH_TOKEN) == 0) return true;
+  if (server.hasHeader("X-Jarvis-Token") &&
+      server.header("X-Jarvis-Token") == String(AUTH_TOKEN)) {
+    return true;
+  }
+  if (server.hasHeader("Authorization")) {
+    String a = server.header("Authorization");
+    if (a.startsWith("Bearer ") && a.substring(7) == String(AUTH_TOKEN)) return true;
+  }
+  if (server.hasArg("token") && server.arg("token") == String(AUTH_TOKEN)) return true;
+  return false;
+}
+
+bool requireToken() {
+  if (tokenOk()) return true;
+  server.send(401, "application/json", "{\"ok\":false,\"error\":\"unauthorized\"}");
+  return false;
 }
 
 void applyRelay(bool on) {
@@ -84,7 +103,6 @@ bool sendWol() {
   udp.beginPacket(bcast, 9);
   udp.write(packet, sizeof(packet));
   bool ok = udp.endPacket();
-  // Bazı ağlarda 7 de kullanılır
   udp.beginPacket(bcast, 7);
   udp.write(packet, sizeof(packet));
   udp.endPacket();
@@ -99,7 +117,6 @@ bool pcOnline() {
   int code = http.GET();
   String body = http.getString();
   http.end();
-  // Yalnızca gerçek Jarvis health (200 + ok/role)
   if (code != 200) return false;
   body.toLowerCase();
   return body.indexOf("\"ok\":true") >= 0 || body.indexOf("pc-jarvis") >= 0;
@@ -111,15 +128,19 @@ String forwardToPc(const String& text) {
   http.setTimeout(15000);
   if (!http.begin(url)) return "{\"ok\":false,\"error\":\"pc begin failed\"}";
   http.addHeader("Content-Type", "application/json");
+  if (PC_API_TOKEN != nullptr && strlen(PC_API_TOKEN) > 0) {
+    http.addHeader("Authorization", String("Bearer ") + PC_API_TOKEN);
+    http.addHeader("X-Jarvis-Token", PC_API_TOKEN);
+  }
   String body = String("{\"text\":\"") + jsonEscape(text) + "\"}";
   int code = http.POST(body);
   String resp = http.getString();
   http.end();
   if (code <= 0) return "{\"ok\":false,\"error\":\"pc unreachable\",\"via\":\"esp\"}";
   if (resp.length() == 0) {
-    return String("{\"ok\":") + (code < 400 ? "true" : "false") + ",\"via\":\"pc\",\"http\":" + code + "}";
+    return String("{\"ok\":") + (code < 400 ? "true" : "false") +
+           ",\"via\":\"pc\",\"http\":" + code + "}";
   }
-  // PC yanıtına via ekle (basit)
   if (resp.endsWith("}")) {
     resp.remove(resp.length() - 1);
     resp += ",\"via\":\"pc\"}";
@@ -146,16 +167,16 @@ String turkishFold(String s) {
 
 String handleLocal(const String& textRaw) {
   String t = turkishFold(textRaw);
-
   bool wantPcOn =
       t.indexOf("bilgisayar ac") >= 0 || t.indexOf("pc ac") >= 0 ||
       t.indexOf("bilgisayari ac") >= 0 || t.indexOf("pc yi ac") >= 0 ||
       t.indexOf("wake") >= 0 || t.indexOf("uyandir") >= 0;
-
-  bool lightOn = (t.indexOf("isik ac") >= 0 || t.indexOf("lambayi ac") >= 0 || t.indexOf("lamba ac") >= 0 ||
-                  (t.indexOf("isik") >= 0 && t.indexOf("yak") >= 0));
-  bool lightOff = (t.indexOf("isik kapat") >= 0 || t.indexOf("lambayi kapat") >= 0 ||
-                   t.indexOf("lamba kapat") >= 0 || t.indexOf("isik sondur") >= 0);
+  bool lightOn =
+      t.indexOf("isik ac") >= 0 || t.indexOf("lambayi ac") >= 0 || t.indexOf("lamba ac") >= 0 ||
+      (t.indexOf("isik") >= 0 && t.indexOf("yak") >= 0);
+  bool lightOff =
+      t.indexOf("isik kapat") >= 0 || t.indexOf("lambayi kapat") >= 0 ||
+      t.indexOf("lamba kapat") >= 0 || t.indexOf("isik sondur") >= 0;
 
   if (wantPcOn) {
     bool wol = sendWol();
@@ -176,15 +197,12 @@ String handleLocal(const String& textRaw) {
     return String("{\"ok\":true,\"via\":\"esp\",\"action\":\"light_toggle\",\"state\":\"") +
            (relayOn ? "on" : "off") + "\"}";
   }
-
-  return "{\"ok\":false,\"via\":\"esp\",\"error\":\"pc offline; sadece isik/pc ac destekleniyor\"}";
+  return "{\"ok\":false,\"via\":\"esp\",\"error\":\"pc offline; sadece isik/pc ac\"}";
 }
 
 String routeCommand(const String& text) {
   if (text.length() == 0) return "{\"ok\":false,\"error\":\"empty\"}";
-  if (pcOnline()) {
-    return forwardToPc(text);
-  }
+  if (pcOnline()) return forwardToPc(text);
   return handleLocal(text);
 }
 
@@ -194,11 +212,15 @@ void sendJson(int code, const String& body) {
 
 void handleHealth() {
   bool pc = pcOnline();
-  sendJson(200, String("{\"ok\":true,\"role\":\"esp-hub\",\"relay\":\"") + (relayOn ? "on" : "off") +
-                    "\",\"pc_online\":" + (pc ? "true" : "false") + "}");
+  sendJson(
+      200,
+      String("{\"ok\":true,\"role\":\"esp-hub\",\"device\":\"jarvis-hub\",\"mdns\":\"") +
+          MDNS_HOSTNAME + ".local\",\"relay\":\"" + (relayOn ? "on" : "off") +
+          "\",\"pc_online\":" + (pc ? "true" : "false") + "}");
 }
 
 void handleCommandGet() {
+  if (!requireToken()) return;
   if (!server.hasArg("text")) {
     sendJson(400, "{\"ok\":false,\"error\":\"text required\"}");
     return;
@@ -207,13 +229,11 @@ void handleCommandGet() {
 }
 
 void handleCommandPost() {
+  if (!requireToken()) return;
   String body = server.arg("plain");
   String text = "";
   int i = body.indexOf("\"text\"");
   if (i >= 0) {
-    int c1 = body.indexOf('"', i + 6);
-    int c2 = body.indexOf('"', c1 + 1);
-    // find value after :
     int colon = body.indexOf(':', i);
     int q1 = body.indexOf('"', colon + 1);
     int q2 = body.indexOf('"', q1 + 1);
@@ -221,6 +241,26 @@ void handleCommandPost() {
   }
   if (text.length() == 0 && server.hasArg("text")) text = server.arg("text");
   sendJson(200, routeCommand(text));
+}
+
+void handleRelayOn() {
+  if (!requireToken()) return;
+  applyRelay(true);
+  sendJson(200, "{\"ok\":true,\"state\":\"on\"}");
+}
+void handleRelayOff() {
+  if (!requireToken()) return;
+  applyRelay(false);
+  sendJson(200, "{\"ok\":true,\"state\":\"off\"}");
+}
+void handleRelayToggle() {
+  if (!requireToken()) return;
+  applyRelay(!relayOn);
+  sendJson(200, String("{\"ok\":true,\"state\":\"") + (relayOn ? "on" : "off") + "\"}");
+}
+void handleRelayStatus() {
+  if (!requireToken()) return;
+  sendJson(200, String("{\"ok\":true,\"state\":\"") + (relayOn ? "on" : "off") + "\"}");
 }
 
 void setup() {
@@ -242,19 +282,21 @@ void setup() {
   Serial.println();
   Serial.print("ESP IP: ");
   Serial.println(WiFi.localIP());
-  udp.begin(9);
 
+  if (MDNS.begin(MDNS_HOSTNAME)) {
+    MDNS.addService("http", "tcp", 8788);
+    Serial.print("mDNS: http://");
+    Serial.print(MDNS_HOSTNAME);
+    Serial.println(".local:8788");
+  }
+
+  udp.begin(9);
   server.on("/", handleHealth);
   server.on("/health", handleHealth);
-  server.on("/relay/on", []() { applyRelay(true); sendJson(200, "{\"ok\":true,\"state\":\"on\"}"); });
-  server.on("/relay/off", []() { applyRelay(false); sendJson(200, "{\"ok\":true,\"state\":\"off\"}"); });
-  server.on("/relay/toggle", []() {
-    applyRelay(!relayOn);
-    sendJson(200, String("{\"ok\":true,\"state\":\"") + (relayOn ? "on" : "off") + "\"}");
-  });
-  server.on("/relay/status", []() {
-    sendJson(200, String("{\"ok\":true,\"state\":\"") + (relayOn ? "on" : "off") + "\"}");
-  });
+  server.on("/relay/on", handleRelayOn);
+  server.on("/relay/off", handleRelayOff);
+  server.on("/relay/toggle", handleRelayToggle);
+  server.on("/relay/status", handleRelayStatus);
   server.on("/api/command", HTTP_GET, handleCommandGet);
   server.on("/api/command", HTTP_POST, handleCommandPost);
   server.begin();
