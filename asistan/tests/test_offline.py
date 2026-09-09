@@ -245,12 +245,7 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(body["result"]["ok"])
 
     def test_settings_patch(self) -> None:
-        from unittest.mock import patch
-
-        from core.config import Settings
-
-        with patch.object(Settings, "save", lambda self, path=None: None):
-            res = self.client.patch("/api/settings", json={"require_wake_word": True})
+        res = self.client.patch("/api/settings", json={"require_wake_word": True})
         self.assertEqual(res.status_code, 200)
         self.assertTrue(res.json()["settings"]["require_wake_word"])
         status = self.client.get("/api/status").json()
