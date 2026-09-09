@@ -1,10 +1,10 @@
 /*
  * Jarvis ESP32 röle örneği (Arduino framework)
  * - WiFi Access Point veya STA
- * - HTTP: /relay/on /relay/off /relay/toggle /relay/status /
+ * - HTTP :8788 → /relay/on /relay/off /relay/toggle /relay/status /
  *
  * Bağlantı: röle IN → GPIO 5 (RELAY_PIN), VCC/GND röleye göre.
- * Jarvis config: devices.isik.base_url = http://<ESP32-IP>
+ * Jarvis config: devices.isik.base_url = http://<ESP32-IP>:8788
  */
 
 #include <WiFi.h>
@@ -17,7 +17,7 @@ const int RELAY_PIN = 5;
 // Bazı röle kartları LOW ile açılır:
 const bool RELAY_ACTIVE_LOW = true;
 
-WebServer server(80);
+WebServer server(8788);
 bool relayOn = false;
 
 void applyRelay(bool on) {

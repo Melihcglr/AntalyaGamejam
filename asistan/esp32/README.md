@@ -31,6 +31,9 @@ Doldur:
 
 Eski sadece-röle: `jarvis_relay/` (hub yok).
 
+**Port:** ESP HTTP **8788** (Jarvis tarama bunu tercih eder; 80 de taranır).
+Router’da ESP’ye sabit IP ver.
+
 ## 2) PC Jarvis
 
 `config.json`:
@@ -38,9 +41,9 @@ Eski sadece-röle: `jarvis_relay/` (hub yok).
 "host": "0.0.0.0",
 "port": 8787,
 "pc_mac": "AA:BB:CC:DD:EE:FF",
-"esp_hub_url": "http://ESP_IP",
+"esp_hub_url": "http://ESP_IP:8788",
 "devices": {
-  "isik": { "base_url": "http://ESP_IP", "aliases": ["ışık", "lamba"] }
+  "isik": { "base_url": "http://ESP_IP:8788", "aliases": ["ışık", "lamba"] }
 }
 ```
 
@@ -51,9 +54,9 @@ Windows açılışında otomatik: `asistan/windows_autostart.bat` dosyasını G�
 ## 3) Komut yollama (ESP üzerinden)
 
 ```
-GET  http://ESP_IP/api/command?text=isigi%20kapat
-POST http://ESP_IP/api/command  {"text":"oyun modu"}
-GET  http://ESP_IP/health
+GET  http://ESP_IP:8788/api/command?text=isigi%20kapat
+POST http://ESP_IP:8788/api/command  {"text":"oyun modu"}
+GET  http://ESP_IP:8788/health
 ```
 
 PC açıkken `oyun modu` Jarvis’te çalışır (Valorant + ışık).

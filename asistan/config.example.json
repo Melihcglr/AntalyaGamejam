@@ -11,7 +11,7 @@
   "port": 8787,
   "pc_mac": "AA:BB:CC:DD:EE:FF",
   "wol_broadcast": "255.255.255.255",
-  "esp_hub_url": "http://192.168.1.50",
+  "esp_hub_url": "http://192.168.1.50:8788",
   "require_confirm_for_risky": true,
   "speak_responses": true,
   "window_move_timeout_sec": 60,
@@ -59,7 +59,7 @@
     "isik": {
       "name": "Oda ışığı",
       "aliases": ["ışık", "isik", "lamba", "oda ışığı"],
-      "base_url": "http://192.168.1.50",
+      "base_url": "http://192.168.1.50:8788",
       "on_path": "/relay/on",
       "off_path": "/relay/off",
       "toggle_path": "/relay/toggle",

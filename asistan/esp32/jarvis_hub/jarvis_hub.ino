@@ -4,13 +4,14 @@
  * Aynı WiFi'de PC (Jarvis) açıksa komutu PC'ye iletir.
  * PC kapalıysa yerelde işler: ışık rölesi + Wake-on-LAN (bilgisayar aç).
  *
- * Endpointler:
+ * Endpointler (port 8788):
  *   GET  /health
  *   GET  /relay/on|off|toggle|status
  *   POST /api/command   JSON: {"text":"ışığı aç"}
  *   GET  /api/command?text=isigi+ac
  *
  * Kurulum: WIFI_*, PC_HOST, PC_PORT, PC_MAC doldur.
+ * Jarvis tarama varsayılanı: http://ESP_IP:8788
  */
 
 #include <WiFi.h>
@@ -37,7 +38,7 @@ const int PC_POWER_RELAY_PIN = -1;  // yoksa -1
 const bool PC_POWER_ACTIVE_LOW = true;
 const uint16_t PC_POWER_PULSE_MS = 400;
 
-WebServer server(80);
+WebServer server(8788);
 WiFiUDP udp;
 bool relayOn = false;
 

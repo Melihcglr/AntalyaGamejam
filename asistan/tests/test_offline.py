@@ -145,23 +145,46 @@ class OfflineAssistantTests(unittest.TestCase):
         self.assertEqual(brain.plan("esp bul")["action"]["target"], "jarvis")
         self.assertEqual(brain.plan("bulunan cihazları bağla")["action"]["type"], "network_adopt")
 
+    def test_classify_requires_jarvis_marker(self) -> None:
+        from core.netscan import _classify
+
+        # Yalnızca "relay" / genel HTTP → jarvis sayılmamalı
+        self.assertEqual(_classify("relay ok", {"device": "relay"})[0], "http")
+        self.assertEqual(_classify("hello", None)[0], "http")
+        self.assertEqual(
+            _classify('{"device":"jarvis-relay"}', {"device": "jarvis-relay"})[0],
+            "jarvis_relay",
+        )
+        self.assertEqual(
+            _classify("esp-hub ready", {"role": "esp-hub"})[0],
+            "jarvis_hub",
+        )
+
     def test_adopt_discovered(self) -> None:
         from core.iot_models import DeviceSpec
         from core.netscan import adopt_discovered
 
-        discovered = [
-            {"kind": "jarvis_hub", "base_url": "http://192.168.1.50"},
-            {"kind": "jarvis_relay", "base_url": "http://192.168.1.51"},
-            {"kind": "http", "base_url": "http://192.168.1.52"},
-        ]
-        updated, added = adopt_discovered(discovered, {}, jarvis_only=True)
+        # Sadece hub → hem hub hem isik (aynı URL)
+        hub_only = [{"kind": "jarvis_hub", "base_url": "http://192.168.1.50:8788"}]
+        updated, added = adopt_discovered(hub_only, {}, jarvis_only=True)
         self.assertEqual(set(added), {"hub", "isik"})
-        self.assertEqual(updated["hub"].base_url, "http://192.168.1.50")
+        self.assertEqual(updated["hub"].base_url, "http://192.168.1.50:8788")
+        self.assertEqual(updated["isik"].base_url, "http://192.168.1.50:8788")
+        self.assertIn("ışık", updated["isik"].aliases)
+        self.assertEqual(updated["isik"].status_path, "/relay/status")
         self.assertIsInstance(updated["isik"], DeviceSpec)
-        # İkinci kez aynı URL eklenmemeli
-        again, added2 = adopt_discovered(discovered, updated, jarvis_only=True)
+        again, added2 = adopt_discovered(hub_only, updated, jarvis_only=True)
         self.assertEqual(added2, [])
         self.assertEqual(len(again), 2)
+
+        # Ayrı röle → espN
+        with_relay = hub_only + [
+            {"kind": "jarvis_relay", "base_url": "http://192.168.1.51:8788"},
+            {"kind": "http", "base_url": "http://192.168.1.52"},
+        ]
+        updated2, added3 = adopt_discovered(with_relay, {}, jarvis_only=True)
+        self.assertIn("esp1", added3)
+        self.assertNotIn("http1", added3)
 
     def test_scene_runs_steps(self) -> None:
         from unittest.mock import patch
