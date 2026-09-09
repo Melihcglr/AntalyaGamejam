@@ -45,6 +45,37 @@ class OfflineAssistantTests(unittest.TestCase):
         self.assertEqual(search["action"]["type"], "search")
         self.assertIn("fastapi", search["action"]["target"])
 
+    def test_valorant_on_monitor_two(self) -> None:
+        brain = Brain(self.settings)
+        for phrase in (
+            "valorantı ekran 2 de aç",
+            "valorant'ı 2. ekranda aç",
+            "ekran 2 de valorant aç",
+            "valo monitör 2 başlat",
+        ):
+            plan = brain.plan(phrase)
+            self.assertEqual(plan["action"]["type"], "open_app", phrase)
+            self.assertEqual(plan["action"]["target"], "valorant", phrase)
+            self.assertEqual(plan["action"]["monitor"], 2, phrase)
+
+    def test_google_research_phrases(self) -> None:
+        brain = Brain(self.settings)
+        cases = [
+            ("google'la araştır valorant ayarları", "valorant ayarları"),
+            ("bana python asyncio araştır", "python asyncio"),
+            ("şunu google ile araştır: konya hava", "konya hava"),
+            ("fastapi hakkında google'da araştır", "fastapi"),
+        ]
+        for phrase, needle in cases:
+            plan = brain.plan(phrase)
+            self.assertEqual(plan["action"]["type"], "search", phrase)
+            self.assertIn(needle.split()[0], plan["action"]["target"], phrase)
+
+    def test_describe_not_confused_with_open(self) -> None:
+        brain = Brain(self.settings)
+        plan = brain.plan("ekranı açıkla")
+        self.assertEqual(plan["action"]["type"], "describe_screen")
+
     def test_notes_flow(self) -> None:
         bot = self._bot()
         r1 = bot.handle_text("not al süt al")

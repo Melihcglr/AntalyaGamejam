@@ -38,7 +38,7 @@ class SafetyGuard:
             )
         return SafetyDecision(RiskLevel.SAFE, "İzin verildi")
 
-    def check_app(self, app_key: str, allowed: dict[str, str]) -> SafetyDecision:
+    def check_app(self, app_key: str, allowed: dict) -> SafetyDecision:
         if app_key.lower() not in {k.lower() for k in allowed}:
             return SafetyDecision(RiskLevel.BLOCKED, f"Uygulama listede yok: {app_key}")
         return SafetyDecision(RiskLevel.SAFE, "İzin verildi")

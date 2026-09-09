@@ -17,15 +17,17 @@ Kontrol paneli: `http://127.0.0.1:8787`
 
 ## Komut örnekleri
 
+- `valorantı ekran 2 de aç` / `valo monitör 2 başlat`
+- `google'la araştır python asyncio`
+- `bana konya restorantları araştır`
 - `jarvis saat kaç`
 - `not defteri aç` / `spotify aç` / `vscode aç`
-- `ara python tutorial`
 - `not al yarın fatura öde`
-- `notlarımı göster`
 - `kameradan fotoğraf çek`
 - `ekranı açıkla` (API anahtarı gerekir)
 - `sistem durumu` / `çalışan programlar`
-- `sesi kıs` / `ses artır`
+
+Valorant yolu `config.json` → `allowed_apps.valorant` içinde. Riot farklı yerdeyse `path` alanını kendi kurulumuna göre düzenle.
 
 ## Yapılandırma
 

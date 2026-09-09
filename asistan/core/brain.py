@@ -25,20 +25,34 @@ Sadece şu JSON şemasını döndür:
   "action": {
     "type": "none|open_app|open_url|shell|type_text|camera|screen|describe_camera|describe_screen|status|list_apps|time|search|note_add|note_list|note_clear|volume|processes|open_path",
     "target": "hedef (uygulama adı, url, komut, arama, not veya yol)",
+    "monitor": null,
     "confirm_token": null
   }
 }
 
 Kurallar:
+- "valorantı ekran 2 de aç" → open_app target=valorant, monitor=2
+- "bunu google'la araştır: ..." / "bana X araştır" → search
 - Tehlikeli silme/format/kapatma isteme; shell için mümkün olduğunca kaçın.
-- open_app target: notepad, explorer, chrome, edge, calculator, spotify, vscode gibi kısa anahtar.
+- open_app target: notepad, explorer, chrome, edge, calculator, spotify, vscode, valorant, discord, steam
 - volume target: up|down|mute
-- search target: arama metni
-- note_add target: not metni
-- open_path target: klasör/dosya yolu
-- Bilmiyorsan action.type = none ve speech ile açıkla.
 - JSON dışında hiçbir şey yazma.
 """
+
+# anahtar -> konuşma aliasları
+APP_ALIASES: dict[str, tuple[str, ...]] = {
+    "valorant": ("valorant", "valo"),
+    "notepad": ("not defteri", "notepad"),
+    "explorer": ("dosya gezgin", "explorer", "gezgin"),
+    "calculator": ("hesap makinesi", "calculator", "calc"),
+    "chrome": ("chrome", "google chrome"),
+    "edge": ("edge", "microsoft edge"),
+    "spotify": ("spotify",),
+    "vscode": ("vscode", "visual studio code", "kod editör"),
+    "discord": ("discord",),
+    "steam": ("steam",),
+    "cmd": ("cmd", "komut istemi"),
+}
 
 
 def strip_wake(text: str, wake_word: str, assistant_name: str) -> str:
@@ -51,6 +65,84 @@ def strip_wake(text: str, wake_word: str, assistant_name: str) -> str:
     for pat in patterns:
         cleaned = re.sub(pat, "", cleaned, flags=re.IGNORECASE)
     return cleaned.strip() or text.strip()
+
+
+def extract_monitor(text: str) -> int | None:
+    patterns = [
+        r"(?:ekran|monitör|monitor)\s*(?:numara(?:sı)?\s*)?(\d+)",
+        r"(\d+)\s*(?:\.|inci|nci|uncu|üncü)?\s*(?:ekran|monitör|monitor)",
+        r"(?:ekran|monitör|monitor)\s*(\d+)\s*(?:de|da|te|ta)?",
+    ]
+    for pat in patterns:
+        m = re.search(pat, text, flags=re.IGNORECASE)
+        if m:
+            return int(m.group(1))
+    return None
+
+
+def extract_google_query(text: str) -> str | None:
+    raw = text.strip()
+    patterns = [
+        r"(?:google['’`]?\s*l[ae]|google['’`]?\s*ile|google['’`]?\s*da|google['’`]?\s*de)\s+(?:araştır(?:ma)?|ara(?!ştır))\s*[:\-]?\s*(.+)$",
+        r"(?:araştır(?:ma)?|ara(?!ştır))\s+(?:şunu\s+)?(?:google['’`]?\s*l[ae]|google['’`]?\s*ile|google['’`]?\s*da|google['’`]?\s*de)\s*[:\-]?\s*(.+)$",
+        r"bana\s+(.+?)\s+(?:google['’`]?\s*l[ae]\s+)?(?:araştır(?:ma)?|ara(?!ştır))(?:\s+google['’`]?\s*l[ae])?$",
+        r"(.+?)\s+(?:konusunda|hakkında)\s+(?:google['’`]?\s*(?:l[ae]|ile|da|de)\s+)?(?:araştır(?:ma)?|ara(?!ştır))\b",
+        r"(?:şunu|bunu)\s+(?:google['’`]?\s*l[ae]|google['’`]?\s*ile)\s+(?:araştır(?:ma)?|ara(?!ştır))\s*[:\-]?\s*(.+)$",
+        r"(?:şunu|bunu)\s+(?:araştır(?:ma)?|ara(?!ştır))\s*[:\-]?\s*(.+)$",
+        r"google\s+(?:ile\s+)?(?:araştır(?:ma)?|ara(?!ştır))\s*[:\-]?\s*(.+)$",
+        r"\b(?:ara|google|bing)\s+(.+)$",
+    ]
+    for pat in patterns:
+        m = re.search(pat, raw, flags=re.IGNORECASE)
+        if m:
+            q = m.group(1).strip(" .,:;!?")
+            if not q or len(q) < 2:
+                continue
+            # Uygulama aç komutunu arama sanma
+            if match_open_app(q) or match_open_app(raw):
+                opened = match_open_app(raw)
+                if opened:
+                    continue
+            return q
+    return None
+
+
+def match_open_app(text: str) -> tuple[str, int | None] | None:
+    """Uygulama aç komutunu ve isteğe bağlı ekran numarasını yakala."""
+    lowered = text.lower().strip()
+    monitor = extract_monitor(lowered)
+    # monitör ifadesini temizle ki alias eşleşsin
+    cleaned = re.sub(
+        r"(?:ekran|monitör|monitor)\s*(?:numara(?:sı)?\s*)?\d+(?:\s*(?:de|da|te|ta))?",
+        " ",
+        lowered,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"\d+\s*(?:\.|inci|nci|uncu|üncü)?\s*(?:ekran|monitör|monitor)(?:\s*(?:de|da|te|ta))?",
+        " ",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+
+    open_words = re.search(
+        r"(?<![a-zçğıöşü])(aç|başlat|çalıştır|açıver|açsana)(?![a-zçğıöşü])",
+        cleaned,
+    )
+    if not open_words and monitor is None:
+        return None
+    if not open_words and monitor is not None:
+        # "valorant ekran 2" gibi kısa form — alias şart
+        pass
+    for key, aliases in APP_ALIASES.items():
+        for alias in aliases:
+            # Türkçe ek: valorantı, valorant'ı
+            if re.search(rf"\b{re.escape(alias)}(?:['’]?[ıiuü])?\b", cleaned):
+                return key, monitor
+            if alias in cleaned:
+                return key, monitor
+    return None
 
 
 class Brain:
@@ -68,7 +160,6 @@ class Brain:
         return self._client is not None
 
     def plan(self, user_text: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
-        # Önce çevrimdışı kurallar — hızlı ve deterministik.
         offline = self._offline_plan(user_text)
         if offline["action"]["type"] != "none" or not self._client:
             return offline
@@ -77,9 +168,7 @@ class Brain:
             {"role": "system", "content": SYSTEM_PROMPT},
             {
                 "role": "user",
-                "content": json_dumps(
-                    {"utterance": user_text, "context": context or {}},
-                ),
+                "content": json_dumps({"utterance": user_text, "context": context or {}}),
             },
         ]
         response = self._client.chat.completions.create(
@@ -92,16 +181,19 @@ class Brain:
         try:
             data = __import__("json").loads(raw)
         except Exception:
-            return {
-                "speech": "Planı çözümleyemedim.",
-                "action": {"type": "none", "target": "", "confirm_token": None},
-            }
+            return plan("none", "", "Planı çözümleyemedim.")
         action = data.get("action") or {}
+        monitor = action.get("monitor")
+        try:
+            monitor_i = int(monitor) if monitor is not None else None
+        except (TypeError, ValueError):
+            monitor_i = None
         return {
             "speech": data.get("speech") or "Tamam.",
             "action": {
                 "type": action.get("type") or "none",
                 "target": action.get("target") or "",
+                "monitor": monitor_i,
                 "confirm_token": action.get("confirm_token"),
             },
         }
@@ -145,10 +237,22 @@ class Brain:
         if any(k in text for k in ("saat kaç", "tarih", "bugün günlerden")):
             return plan("time", "", "Zamanı söylüyorum.")
 
-        search_match = re.search(r"(?:ara|google|bing)\s+(.+)$", text)
-        if search_match:
-            q = search_match.group(1).strip()
-            return plan("search", q, f"{q} için arama açıyorum.")
+        # Uygulama + ekran (Valorant vb.) — aramadan ÖNCE
+        opened = match_open_app(text)
+        if opened:
+            app_key, monitor = opened
+            # "açıkl" içeren ekran cümlelerini ele
+            if "açıkl" in text and "ekran" in text and app_key not in text:
+                pass
+            else:
+                speech = f"{app_key} açıyorum."
+                if monitor is not None:
+                    speech = f"{app_key} ekran {monitor}'de açıyorum."
+                return plan("open_app", app_key, speech, monitor=monitor)
+
+        query = extract_google_query(text)
+        if query:
+            return plan("search", query, f"Google'da araştırıyorum: {query}")
 
         if "sesi kapat" in text or "sessiz" in text or "mute" in text:
             return plan("volume", "mute", "Sesi kapatıyorum.")
@@ -170,13 +274,6 @@ class Brain:
             return plan("open_path", path_match.group(1).strip(), "Yolu açıyorum.")
 
         mapping = [
-            (("not defteri", "notepad"), "open_app", "notepad", "Not defterini açıyorum."),
-            (("dosya gezgin", "explorer"), "open_app", "explorer", "Gezgini açıyorum."),
-            (("hesap makinesi", "calculator", "calc"), "open_app", "calculator", "Hesap makinesini açıyorum."),
-            (("chrome",), "open_app", "chrome", "Chrome'u açıyorum."),
-            (("edge",), "open_app", "edge", "Edge'i açıyorum."),
-            (("spotify",), "open_app", "spotify", "Spotify'ı açıyorum."),
-            (("vscode", "visual studio code", "kod editör"), "open_app", "vscode", "VS Code'u açıyorum."),
             (("fotoğraf çek", "kameradan", "kamera aç", "kamera"), "camera", "", "Kameradan kare alıyorum."),
             (("ekran görüntüsü", "ekranı yakala", "ekranı kaydet"), "screen", "", "Ekran görüntüsü alıyorum."),
             (("durum", "sistem"), "status", "", "Sistem durumuna bakıyorum."),
@@ -203,15 +300,25 @@ class Brain:
                 "none",
                 "",
                 "Anladım ama bu komutu çevrimdışı bilmiyorum. "
-                "Örnek: not defteri aç, saat kaç, ara python, not al süt al, kamera, ekranı açıkla.",
+                "Örnek: valorantı ekran 2 de aç, google'la araştır ..., not defteri aç.",
             )
         return plan("none", "", "")
 
 
-def plan(action_type: str, target: str, speech: str) -> dict[str, Any]:
+def plan(
+    action_type: str,
+    target: str,
+    speech: str,
+    monitor: int | None = None,
+) -> dict[str, Any]:
     return {
         "speech": speech,
-        "action": {"type": action_type, "target": target, "confirm_token": None},
+        "action": {
+            "type": action_type,
+            "target": target,
+            "monitor": monitor,
+            "confirm_token": None,
+        },
     }
 
 

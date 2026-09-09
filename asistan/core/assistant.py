@@ -40,7 +40,11 @@ class Assistant:
             self.settings.require_confirm_for_risky,
         )
         self.brain = Brain(self.settings)
-        self.hands = Hands(self.settings.allowed_apps, self.safety)
+        self.hands = Hands(
+            self.settings.allowed_apps,
+            self.safety,
+            window_move_timeout_sec=self.settings.window_move_timeout_sec,
+        )
         self.eye = Eye()
         self.memory = Memory.load()
         self.ear: Ear | None = None
@@ -145,7 +149,12 @@ class Assistant:
         if kind in ("none", "", "chat"):
             return ActionResult(True, "Sözlü yanıt.")
         if kind == "open_app":
-            return self.hands.open_app(target)
+            monitor = action.get("monitor")
+            try:
+                monitor_i = int(monitor) if monitor is not None else None
+            except (TypeError, ValueError):
+                monitor_i = None
+            return self.hands.open_app(target, monitor=monitor_i)
         if kind == "open_url":
             return self.hands.open_url(target)
         if kind == "open_path":

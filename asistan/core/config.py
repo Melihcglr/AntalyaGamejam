@@ -4,7 +4,22 @@ import json
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+class AppSpec(BaseModel):
+    path: str
+    args: list[str] = Field(default_factory=list)
+    window_title: str = ""
+    process_name: str = ""
+
+    @classmethod
+    def from_value(cls, value: str | dict[str, Any] | "AppSpec") -> "AppSpec":
+        if isinstance(value, AppSpec):
+            return value
+        if isinstance(value, str):
+            return cls(path=value)
+        return cls.model_validate(value)
 
 
 class Settings(BaseModel):
@@ -20,8 +35,19 @@ class Settings(BaseModel):
     port: int = 8787
     require_confirm_for_risky: bool = True
     speak_responses: bool = True
-    allowed_apps: dict[str, str] = Field(default_factory=dict)
+    allowed_apps: dict[str, AppSpec] = Field(default_factory=dict)
     blocked_commands: list[str] = Field(default_factory=list)
+    window_move_timeout_sec: float = 45.0
+
+    @field_validator("allowed_apps", mode="before")
+    @classmethod
+    def normalize_apps(cls, value: Any) -> dict[str, Any]:
+        if not isinstance(value, dict):
+            return {}
+        out: dict[str, Any] = {}
+        for key, raw in value.items():
+            out[str(key).lower()] = AppSpec.from_value(raw).model_dump()
+        return out
 
     @classmethod
     def load(cls, path: Path | None = None) -> "Settings":
@@ -38,7 +64,16 @@ class Settings(BaseModel):
     def save(self, path: Path | None = None) -> None:
         root = Path(__file__).resolve().parent.parent
         config_path = path or (root / "config.json")
+        payload = self.model_dump()
+        # JSON’da uygulamaları okunaklı tut
+        apps = {}
+        for key, spec in self.allowed_apps.items():
+            if spec.args or spec.window_title or spec.process_name:
+                apps[key] = spec.model_dump()
+            else:
+                apps[key] = spec.path
+        payload["allowed_apps"] = apps
         config_path.write_text(
-            json.dumps(self.model_dump(), ensure_ascii=False, indent=2),
+            json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import platform
 import subprocess
+import threading
 import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +11,8 @@ from typing import Any
 
 import psutil
 
+from .config import AppSpec
+from .display import list_monitors, move_window_to_monitor
 from .safety import RiskLevel, SafetyGuard
 
 try:
@@ -30,26 +33,62 @@ class ActionResult:
 class Hands:
     """Sistem eylemleri — yalnızca izinli ve denetlenmiş işlemler."""
 
-    def __init__(self, allowed_apps: dict[str, str], safety: SafetyGuard):
-        self.allowed_apps = {k.lower(): v for k, v in allowed_apps.items()}
+    def __init__(
+        self,
+        allowed_apps: dict[str, str | AppSpec | dict[str, Any]],
+        safety: SafetyGuard,
+        window_move_timeout_sec: float = 45.0,
+    ):
+        self.allowed_apps: dict[str, AppSpec] = {
+            k.lower(): AppSpec.from_value(v) for k, v in allowed_apps.items()
+        }
         self.safety = safety
+        self.window_move_timeout_sec = window_move_timeout_sec
         if pyautogui is not None:
             pyautogui.FAILSAFE = True
 
-    def open_app(self, app_key: str) -> ActionResult:
+    def open_app(self, app_key: str, monitor: int | None = None) -> ActionResult:
         key = app_key.lower().strip()
         decision = self.safety.check_app(key, self.allowed_apps)
         if decision.level == RiskLevel.BLOCKED:
             return ActionResult(False, decision.reason)
-        exe = self.allowed_apps[key]
+        spec = self.allowed_apps[key]
         try:
-            if hasattr(os, "startfile"):
-                os.startfile(exe)  # type: ignore[attr-defined]
-            else:
-                subprocess.Popen([exe], shell=False)
-            return ActionResult(True, f"{key} açıldı.")
+            self._launch(spec)
         except Exception as exc:
             return ActionResult(False, f"Açılamadı: {exc}")
+
+        msg = f"{key} açıldı."
+        data: dict[str, Any] = {"app": key, "path": spec.path}
+        if monitor is not None:
+            data["monitor"] = monitor
+            # Pencere geç gelebilir (Valorant/Riot); arka planda taşı.
+            threading.Thread(
+                target=self._move_later,
+                args=(spec, monitor),
+                daemon=True,
+                name=f"move-{key}-m{monitor}",
+            ).start()
+            msg = f"{key} açıldı; ekran {monitor}'e taşınıyor."
+        return ActionResult(True, msg, data=data)
+
+    def _launch(self, spec: AppSpec) -> None:
+        path = spec.path
+        args = list(spec.args)
+        if hasattr(os, "startfile") and not args:
+            os.startfile(path)  # type: ignore[attr-defined]
+            return
+        cmd = [path, *args]
+        subprocess.Popen(cmd, shell=False)
+
+    def _move_later(self, spec: AppSpec, monitor: int) -> None:
+        title = spec.window_title or Path(spec.path).stem
+        move_window_to_monitor(
+            monitor=monitor,
+            title_contains=title,
+            process_name=spec.process_name,
+            timeout_sec=self.window_move_timeout_sec,
+        )
 
     def open_url(self, url: str) -> ActionResult:
         if not url.startswith(("http://", "https://")):
@@ -75,7 +114,6 @@ class Hands:
     def type_text(self, text: str) -> ActionResult:
         if pyautogui is None:
             return ActionResult(False, "pyautogui kurulu değil.")
-        # Türkçe karakterler için clipboard yolu daha güvenilir.
         try:
             import pyperclip  # type: ignore
 
@@ -141,17 +179,25 @@ class Hands:
         mem = psutil.virtual_memory()
         root = Path.home().anchor or ("C:\\" if platform.system() == "Windows" else "/")
         disk = psutil.disk_usage(root)
-        boot = datetime_boot()
+        monitors = list_monitors()
         data = {
             "cpu_percent": cpu,
             "memory_percent": mem.percent,
             "disk_percent": disk.percent,
-            "boot_time": boot,
+            "monitors": [
+                {
+                    "index": m.index,
+                    "width": m.width,
+                    "height": m.height,
+                    "primary": m.is_primary,
+                }
+                for m in monitors
+            ],
             "platform": platform.platform(),
         }
         msg = (
             f"CPU %{cpu:.0f}, bellek %{mem.percent:.0f}, "
-            f"disk %{disk.percent:.0f}."
+            f"disk %{disk.percent:.0f}, ekran sayısı {len(monitors)}."
         )
         return ActionResult(True, msg, data=data)
 
@@ -177,12 +223,3 @@ class Hands:
 
     def list_allowed_apps(self) -> ActionResult:
         return ActionResult(True, "İzinli uygulamalar", data={"apps": sorted(self.allowed_apps)})
-
-
-def datetime_boot() -> str:
-    from datetime import datetime
-
-    try:
-        return datetime.fromtimestamp(psutil.boot_time()).isoformat(timespec="seconds")
-    except Exception:
-        return ""

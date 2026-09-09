@@ -11,6 +11,7 @@
   "port": 8787,
   "require_confirm_for_risky": true,
   "speak_responses": true,
+  "window_move_timeout_sec": 60,
   "allowed_apps": {
     "notepad": "notepad.exe",
     "explorer": "explorer.exe",
@@ -19,7 +20,18 @@
     "calculator": "calc.exe",
     "cmd": "cmd.exe",
     "spotify": "spotify.exe",
-    "vscode": "code"
+    "vscode": "code",
+    "discord": "discord.exe",
+    "steam": "steam.exe",
+    "valorant": {
+      "path": "C:\\Riot Games\\Riot Client\\RiotClientServices.exe",
+      "args": [
+        "--launch-product=valorant",
+        "--launch-patchline=live"
+      ],
+      "window_title": "VALORANT",
+      "process_name": "VALORANT-Win64-Shipping.exe"
+    }
   },
   "blocked_commands": [
     "format",
