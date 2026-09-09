@@ -1,0 +1,1 @@
+"""Windows masaüstü asistan çekirdeği."""

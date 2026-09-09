@@ -1,0 +1,27 @@
+{
+  "assistant_name": "Jarvis",
+  "wake_word": "jarvis",
+  "language": "tr-TR",
+  "openai_api_key": "",
+  "openai_base_url": "https://api.openai.com/v1",
+  "openai_model": "gpt-4o-mini",
+  "host": "127.0.0.1",
+  "port": 8787,
+  "require_confirm_for_risky": true,
+  "allowed_apps": {
+    "notepad": "notepad.exe",
+    "explorer": "explorer.exe",
+    "chrome": "chrome.exe",
+    "edge": "msedge.exe",
+    "calculator": "calc.exe",
+    "cmd": "cmd.exe"
+  },
+  "blocked_commands": [
+    "format",
+    "del /s",
+    "rmdir /s",
+    "shutdown",
+    "reg delete",
+    "Remove-Item -Recurse"
+  ]
+}

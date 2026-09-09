@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jarvis — Kontrol</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true"></div>
+  <main class="shell">
+    <header class="brand">
+      <p class="mark" id="assistantName">JARVIS</p>
+      <p class="tagline">Windows masaüstü ajanı — ses, kamera, sistem</p>
+    </header>
+
+    <section class="hud" aria-label="Durum">
+      <div class="meter">
+        <span class="label">Dinleme</span>
+        <strong id="listenState">kapalı</strong>
+      </div>
+      <div class="meter">
+        <span class="label">Beyin</span>
+        <strong id="brainState">—</strong>
+      </div>
+      <div class="meter">
+        <span class="label">Bekleyen</span>
+        <strong id="pendingState">yok</strong>
+      </div>
+    </section>
+
+    <section class="command" aria-label="Komut">
+      <form id="cmdForm">
+        <label for="cmdInput">Komut</label>
+        <div class="row">
+          <input id="cmdInput" name="text" autocomplete="off" placeholder="ör. not defteri aç / kameradan fotoğraf çek / sistem durumu" />
+          <button type="submit">Gönder</button>
+        </div>
+      </form>
+      <div class="actions">
+        <button type="button" id="btnListen" class="ghost">Dinlemeyi aç</button>
+        <button type="button" id="btnCamera" class="ghost">Kamera</button>
+        <button type="button" id="btnScreen" class="ghost">Ekran</button>
+      </div>
+      <p class="reply" id="reply" aria-live="polite"></p>
+    </section>
+
+    <section class="log" aria-label="Olay günlüğü">
+      <h2>Günlük</h2>
+      <ul id="logList"></ul>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
