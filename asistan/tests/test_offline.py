@@ -139,6 +139,30 @@ class OfflineAssistantTests(unittest.TestCase):
         bad = send_wol("not-a-mac")
         self.assertFalse(bad.ok)
 
+    def test_network_scan_intents(self) -> None:
+        brain = Brain(self.settings)
+        self.assertEqual(brain.plan("ağı tara")["action"]["type"], "network_scan")
+        self.assertEqual(brain.plan("esp bul")["action"]["target"], "jarvis")
+        self.assertEqual(brain.plan("bulunan cihazları bağla")["action"]["type"], "network_adopt")
+
+    def test_adopt_discovered(self) -> None:
+        from core.iot_models import DeviceSpec
+        from core.netscan import adopt_discovered
+
+        discovered = [
+            {"kind": "jarvis_hub", "base_url": "http://192.168.1.50"},
+            {"kind": "jarvis_relay", "base_url": "http://192.168.1.51"},
+            {"kind": "http", "base_url": "http://192.168.1.52"},
+        ]
+        updated, added = adopt_discovered(discovered, {}, jarvis_only=True)
+        self.assertEqual(set(added), {"hub", "isik"})
+        self.assertEqual(updated["hub"].base_url, "http://192.168.1.50")
+        self.assertIsInstance(updated["isik"], DeviceSpec)
+        # İkinci kez aynı URL eklenmemeli
+        again, added2 = adopt_discovered(discovered, updated, jarvis_only=True)
+        self.assertEqual(added2, [])
+        self.assertEqual(len(again), 2)
+
     def test_scene_runs_steps(self) -> None:
         from unittest.mock import patch
 

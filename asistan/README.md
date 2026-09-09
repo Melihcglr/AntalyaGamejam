@@ -25,11 +25,16 @@ Kontrol paneli: `http://127.0.0.1:8787`
 - `valorantı ekran 2 de aç`
 - `google'la araştır python asyncio`
 
-### Akıllı oda — ESP hub + PC
+### Akıllı oda — ESP hub + PC + ağ tarama
 
 ESP her zaman açık yönlendirici (`esp32/jarvis_hub/`):
 - **PC açıksa** → komut Windows Jarvis’e gider
 - **PC kapalıysa** → ESP ışık / WOL yapar
+
+Ağ keşfi:
+- `ağı tara` / `esp bul` → LAN’da HTTP/Jarvis ESP ara
+- `bulunan cihazları bağla` → ESP’leri `config.json` devices’a yazar
+- Panel: **Ağı tara** / **ESP bağla**
 
 PC’de `host: 0.0.0.0`, MAC/`esp_hub_url` ayarla; açılışta `windows_autostart.bat`.
 Detay: `esp32/README.md`

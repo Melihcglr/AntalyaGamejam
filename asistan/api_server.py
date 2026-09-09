@@ -89,6 +89,15 @@ def create_app(assistant: Assistant | None = None) -> FastAPI:
     def devices() -> dict[str, Any]:
         return bot.iot.list_devices().data or {}
 
+    @app.post("/api/network/scan")
+    def network_scan(jarvis_only: bool = False) -> dict[str, Any]:
+        text = "esp bul" if jarvis_only else "ağı tara"
+        return bot.handle_text(text)
+
+    @app.post("/api/network/adopt")
+    def network_adopt() -> dict[str, Any]:
+        return bot.handle_text("bulunan cihazları bağla")
+
     @app.post("/api/device/{name}")
     def device_set(name: str, state: str = "toggle") -> dict[str, Any]:
         return bot.handle_text(

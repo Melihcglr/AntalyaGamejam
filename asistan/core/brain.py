@@ -23,7 +23,7 @@ Sadece şu JSON şemasını döndür:
 {
   "speech": "Kullanıcıya sesli söylenecek kısa Türkçe cevap",
   "action": {
-    "type": "none|open_app|open_url|shell|type_text|camera|screen|describe_camera|describe_screen|status|list_apps|time|search|note_add|note_list|note_clear|volume|processes|open_path|open_cursor|open_project|create_site|agent_prompt|list_projects|device|device_status|list_devices|scene|list_scenes|pc_wake",
+    "type": "none|open_app|open_url|shell|type_text|camera|screen|describe_camera|describe_screen|status|list_apps|time|search|note_add|note_list|note_clear|volume|processes|open_path|open_cursor|open_project|create_site|agent_prompt|list_projects|device|device_status|list_devices|scene|list_scenes|pc_wake|network_scan|network_adopt",
     "target": "hedef",
     "monitor": null,
     "state": null,
@@ -35,6 +35,8 @@ Kurallar:
 - "oyun modu" → scene target=oyun
 - "ışığı kapat" / "lambayı aç" → device
 - "bilgisayar aç" / "pc yi uyandır" → pc_wake
+- "ağı tara" / "esp bul" → network_scan
+- "bulunan cihazları bağla" → network_adopt
 - "valorantı ekran 2 de aç" → open_app
 - JSON dışında bir şey yazma.
 """
@@ -120,7 +122,51 @@ def match_home_intent(
     device_aliases = device_aliases or {}
     scene_aliases = scene_aliases or {}
 
-    if any(k in lowered for k in ("cihazları listele", "cihazlar", "akıllı cihaz")):
+    # Ağ tarama / otomatik bağlanma — "cihazlar" listesinden ÖNCE
+    if any(
+        k in lowered
+        for k in (
+            "bulunan cihazları bağla",
+            "bulunan cihazlari bagla",
+            "cihazları bağla",
+            "cihazlari bagla",
+            "esp bağla",
+            "esp bagla",
+            "keşfedilenleri kaydet",
+            "kesfedilenleri kaydet",
+            "taradığın cihazları ekle",
+            "taradigin cihazlari ekle",
+        )
+    ):
+        return plan("network_adopt", "", "Bulunan Jarvis cihazlarını kaydediyorum.")
+    if any(
+        k in lowered
+        for k in (
+            "ağı tara",
+            "agi tara",
+            "ağ tara",
+            "ag tara",
+            "cihazları tara",
+            "cihazlari tara",
+            "esp tara",
+            "esp bul",
+            "ağdaki cihaz",
+            "agdaki cihaz",
+            "network scan",
+            "scan network",
+        )
+    ):
+        jarvis_only = any(k in lowered for k in ("jarvis", "esp"))
+        return plan(
+            "network_scan",
+            "jarvis" if jarvis_only else "all",
+            "Ağı tarıyorum.",
+        )
+
+    if any(k in lowered for k in ("cihazları listele", "kayıtlı cihaz", "akıllı cihaz")) or lowered.strip() in {
+        "cihazlar",
+        "cihazlarım",
+    }:
         return plan("list_devices", "", "Cihazları listeliyorum.")
     if any(k in lowered for k in ("sahneleri listele", "modları listele", "sahneler")):
         return plan("list_scenes", "", "Sahneleri listeliyorum.")

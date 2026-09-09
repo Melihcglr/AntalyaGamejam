@@ -14,6 +14,7 @@ from .hands import ActionResult, Hands
 from .iot import IoTHub
 from .memory import Memory
 from .mouth import Mouth
+from .netscan import adopt_discovered, scan_network
 from .safety import SafetyGuard
 from .scenes import SceneRunner
 from .wol import send_wol
@@ -59,6 +60,7 @@ class Assistant:
         self.listening = False
         self.log = EventLog()
         self._lock = threading.Lock()
+        self._last_scan: list[dict[str, Any]] = []
 
     def ensure_voice(self) -> None:
         if self.ear is None:
@@ -126,6 +128,8 @@ class Assistant:
                 "device_status",
                 "list_devices",
                 "list_scenes",
+                "network_scan",
+                "network_adopt",
             }:
                 speech = result.message or speech
             elif not result.ok and result.message:
@@ -187,6 +191,35 @@ class Assistant:
             return self.iot.status(target or None)
         if kind == "list_devices":
             return self.iot.list_devices()
+        if kind == "network_scan":
+            jarvis_only = (target or "").lower() in {"jarvis", "esp"}
+            result = scan_network(jarvis_only=jarvis_only)
+            if result.ok and result.data:
+                self._last_scan = list(result.data.get("devices") or [])
+            return result
+        if kind == "network_adopt":
+            source = self._last_scan
+            if not source:
+                # Önce hızlı Jarvis taraması
+                scanned = scan_network(jarvis_only=True)
+                source = list((scanned.data or {}).get("devices") or [])
+                self._last_scan = source
+            updated, added = adopt_discovered(source, self.settings.devices, jarvis_only=True)
+            if not added:
+                return ActionResult(
+                    False,
+                    "Eklenecek yeni Jarvis ESP bulunamadı. Önce 'ağı tara' / 'esp bul' de.",
+                    data={"discovered": source},
+                )
+            self.settings.devices = updated
+            self.settings.save()
+            self.iot = IoTHub(self.settings.devices)
+            self.brain = Brain(self.settings)
+            return ActionResult(
+                True,
+                f"{len(added)} cihaz bağlandı: {', '.join(added)}.",
+                data={"added": added, "devices": {k: v.model_dump() for k, v in updated.items()}},
+            )
         if kind == "scene":
             return self.scenes.run(target, execute=self._execute)
         if kind == "list_scenes":
@@ -272,6 +305,7 @@ class Assistant:
             "notes_count": len(self.memory.notes),
             "devices": list(self.settings.devices),
             "scenes": list(self.settings.scenes),
+            "last_scan_count": len(self._last_scan),
             "window_moves": list(self.hands.window_move_log[-5:]),
             "log": self.log.items[-30:],
         }

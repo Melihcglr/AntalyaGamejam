@@ -16,6 +16,8 @@ const els = {
   btnGame: document.getElementById("btnGame"),
   btnWork: document.getElementById("btnWork"),
   btnLightOff: document.getElementById("btnLightOff"),
+  btnScan: document.getElementById("btnScan"),
+  btnAdopt: document.getElementById("btnAdopt"),
 };
 
 let listening = false;
@@ -168,6 +170,8 @@ async function runPhrase(text) {
 els.btnGame.addEventListener("click", () => runPhrase("oyun modu"));
 els.btnWork.addEventListener("click", () => runPhrase("çalışma modu"));
 els.btnLightOff.addEventListener("click", () => runPhrase("ışığı kapat"));
+els.btnScan.addEventListener("click", () => runPhrase("esp bul"));
+els.btnAdopt.addEventListener("click", () => runPhrase("bulunan cihazları bağla"));
 
 refresh();
 setInterval(refresh, 4000);
