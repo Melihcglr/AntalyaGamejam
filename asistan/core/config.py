@@ -38,6 +38,9 @@ class Settings(BaseModel):
     allowed_apps: dict[str, AppSpec] = Field(default_factory=dict)
     blocked_commands: list[str] = Field(default_factory=list)
     window_move_timeout_sec: float = 45.0
+    workspace_root: str = str(Path.home() / "JarvisWorkspace")
+    cursor_cli: str = "cursor"
+    projects: dict[str, str] = Field(default_factory=dict)
 
     @field_validator("allowed_apps", mode="before")
     @classmethod

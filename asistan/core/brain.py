@@ -23,8 +23,8 @@ Sadece şu JSON şemasını döndür:
 {
   "speech": "Kullanıcıya sesli söylenecek kısa Türkçe cevap",
   "action": {
-    "type": "none|open_app|open_url|shell|type_text|camera|screen|describe_camera|describe_screen|status|list_apps|time|search|note_add|note_list|note_clear|volume|processes|open_path",
-    "target": "hedef (uygulama adı, url, komut, arama, not veya yol)",
+    "type": "none|open_app|open_url|shell|type_text|camera|screen|describe_camera|describe_screen|status|list_apps|time|search|note_add|note_list|note_clear|volume|processes|open_path|open_cursor|open_project|create_site|agent_prompt|list_projects",
+    "target": "hedef (uygulama, url, arama, proje adı, site brief veya görev)",
     "monitor": null,
     "confirm_token": null
   }
@@ -32,9 +32,13 @@ Sadece şu JSON şemasını döndür:
 
 Kurallar:
 - "valorantı ekran 2 de aç" → open_app target=valorant, monitor=2
+- "cursor aç" → open_cursor
+- "asistan projesini cursor'da aç" → open_project target=asistan
+- "bana restoran sitesi yap" / "şu tarz bir site yap: ..." → create_site
+- "projeye şunu ekle/düzenle: ..." → agent_prompt (Cursor için görev notu)
 - "bunu google'la araştır: ..." / "bana X araştır" → search
 - Tehlikeli silme/format/kapatma isteme; shell için mümkün olduğunca kaçın.
-- open_app target: notepad, explorer, chrome, edge, calculator, spotify, vscode, valorant, discord, steam
+- open_app target: notepad, explorer, chrome, edge, calculator, spotify, vscode, cursor, valorant, discord, steam
 - volume target: up|down|mute
 - JSON dışında hiçbir şey yazma.
 """
@@ -49,6 +53,7 @@ APP_ALIASES: dict[str, tuple[str, ...]] = {
     "edge": ("edge", "microsoft edge"),
     "spotify": ("spotify",),
     "vscode": ("vscode", "visual studio code", "kod editör"),
+    "cursor": ("cursor", "kürsör", "cursor ide"),
     "discord": ("discord",),
     "steam": ("steam",),
     "cmd": ("cmd", "komut istemi"),
@@ -104,6 +109,67 @@ def extract_google_query(text: str) -> str | None:
                 if opened:
                     continue
             return q
+    return None
+
+
+def match_coding_intent(text: str) -> dict[str, Any] | None:
+    """Site/proje/Cursor düzenleme niyetleri."""
+    lowered = text.strip().lower()
+
+    if any(k in lowered for k in ("projeleri listele", "kayıtlı projeler", "projelerim")):
+        return plan("list_projects", "", "Projeleri listeliyorum.")
+
+    m = re.search(
+        r"(.+?)\s*(?:projesini|klasörünü)?\s*(?:cursor|kürsör)\s*(?:['’]?da|['’]?de|ile)?\s*aç",
+        lowered,
+    )
+    if m:
+        proj = m.group(1).strip(" '\"")
+        proj = re.sub(r"^(?:bana|şu|bu)\s+", "", proj).strip()
+        if proj and proj not in {"cursor", "kürsör"} and "site" not in proj:
+            return plan("open_project", proj, f"{proj} projesini Cursor'da açıyorum.")
+
+    if re.search(r"\b(?:cursor|kürsör)\b", lowered) and re.search(
+        r"(?<![a-zçğıöşü])aç(?![a-zçğıöşü])", lowered
+    ):
+        return plan("open_cursor", "", "Cursor'u açıyorum.")
+
+    site_patterns = [
+        r"(?:bana\s+)?(?:şu\s+tarz(?:da)?\s+)?(?:bir\s+)?(?:internet\s+)?(?:web\s+)?sitesi?\s+yap\s*[:\-]?\s*(.+)$",
+        r"(?:bana\s+)?(.+?)\s+sitesi?\s+yap",
+        r"(?:yeni\s+)?(?:web\s+)?site\s+oluştur\s*[:\-]?\s*(.+)$",
+        r"(?:landing\s+page|açılış\s+sayfası)\s+yap\s*[:\-]?\s*(.+)$",
+    ]
+    for pat in site_patterns:
+        sm = re.search(pat, lowered)
+        if sm:
+            brief = sm.group(1).strip(" .,:;!?")
+            if len(brief) >= 2:
+                return plan(
+                    "create_site",
+                    brief,
+                    f"'{brief}' sitesini hazırlayıp Cursor'da açıyorum.",
+                )
+
+    edit_patterns = [
+        r"(?:şu\s+)?(?:projeyi|projeye|dosyayı|koda)\s+(?:şunu\s+)?(?:düzenle|ekle|değiştir|güncelle)\s*[:\-]?\s*(.+)$",
+        r"(.+?)\s+(?:projesine|projesinde)\s+(?:şunu\s+)?(?:ekle|düzenle|yap)\s*[:\-]?\s*(.+)$",
+        r"(?:cursor(?:['’]?da)?|kürsör(?:['’]?de)?)\s+(?:şunu\s+)?(?:yap|düzenle|yaz)\s*[:\-]?\s*(.+)$",
+        r"agent(?:['’]?a)?\s+(?:şunu\s+)?(?:söyle|yaz|ver)\s*[:\-]?\s*(.+)$",
+    ]
+    for pat in edit_patterns:
+        em = re.search(pat, lowered)
+        if em:
+            if em.lastindex and em.lastindex >= 2:
+                target = f"{em.group(1).strip()}::{em.group(2).strip()}"
+            else:
+                target = em.group(em.lastindex or 1).strip()
+            if len(target) >= 3:
+                return plan(
+                    "agent_prompt",
+                    target,
+                    "Cursor için görev notunu yazıp projeyi açıyorum.",
+                )
     return None
 
 
@@ -236,6 +302,10 @@ class Brain:
 
         if any(k in text for k in ("saat kaç", "tarih", "bugün günlerden")):
             return plan("time", "", "Zamanı söylüyorum.")
+
+        coding = match_coding_intent(text)
+        if coding:
+            return coding
 
         # Uygulama + ekran (Valorant vb.) — aramadan ÖNCE
         opened = match_open_app(text)

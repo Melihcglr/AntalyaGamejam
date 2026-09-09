@@ -76,6 +76,30 @@ class OfflineAssistantTests(unittest.TestCase):
         plan = brain.plan("ekranı açıkla")
         self.assertEqual(plan["action"]["type"], "describe_screen")
 
+    def test_cursor_and_site_intents(self) -> None:
+        brain = Brain(self.settings)
+        self.assertEqual(brain.plan("cursor aç")["action"]["type"], "open_cursor")
+        self.assertEqual(
+            brain.plan("asistan projesini cursor'da aç")["action"]["type"],
+            "open_project",
+        )
+        site = brain.plan("bana konya restoran sitesi yap")
+        self.assertEqual(site["action"]["type"], "create_site")
+        self.assertIn("konya", site["action"]["target"])
+        edit = brain.plan("projeye şunu ekle: hakkımızda sayfası ekle")
+        self.assertEqual(edit["action"]["type"], "agent_prompt")
+
+    def test_create_site_writes_files(self) -> None:
+        self.settings.workspace_root = str(self.root / "ws")
+        self.settings.speak_responses = False
+        bot = self._bot()
+        result = bot.handle_text("şu tarz bir internet sitesi yap: ortalik bar")
+        self.assertEqual(result["action"]["type"], "create_site")
+        self.assertTrue(result["result"]["ok"])
+        site = Path(result["result"]["data"]["path"])
+        self.assertTrue((site / "index.html").exists())
+        self.assertTrue((site / "styles.css").exists())
+
     def test_notes_flow(self) -> None:
         bot = self._bot()
         r1 = bot.handle_text("not al süt al")

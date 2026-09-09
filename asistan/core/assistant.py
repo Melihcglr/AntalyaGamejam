@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from .brain import Brain, local_time_speech, search_url, strip_wake
+from .coder import Coder
 from .config import Settings
 from .ear import Ear
 from .eye import Eye
@@ -45,6 +46,7 @@ class Assistant:
             self.safety,
             window_move_timeout_sec=self.settings.window_move_timeout_sec,
         )
+        self.coder = Coder(self.settings, self.hands.allowed_apps)
         self.eye = Eye()
         self.memory = Memory.load()
         self.ear: Ear | None = None
@@ -155,6 +157,20 @@ class Assistant:
             except (TypeError, ValueError):
                 monitor_i = None
             return self.hands.open_app(target, monitor=monitor_i)
+        if kind == "open_cursor":
+            return self.coder.open_in_cursor(monitor=action.get("monitor"))
+        if kind == "open_project":
+            return self.coder.open_in_cursor(project=target or None)
+        if kind == "create_site":
+            return self.coder.create_site(target)
+        if kind == "agent_prompt":
+            project = None
+            prompt = target
+            if "::" in target:
+                project, prompt = target.split("::", 1)
+            return self.coder.write_agent_prompt(prompt, project=project)
+        if kind == "list_projects":
+            return self.coder.list_projects()
         if kind == "open_url":
             return self.hands.open_url(target)
         if kind == "open_path":

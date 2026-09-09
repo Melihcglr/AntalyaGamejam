@@ -17,17 +17,24 @@ Kontrol paneli: `http://127.0.0.1:8787`
 
 ## Komut örnekleri
 
+- `cursor aç` / `asistan projesini cursor'da aç`
+- `bana konya restoran sitesi yap` / `şu tarz bir internet sitesi yap: ortalik`
+- `projeye şunu ekle: hakkımızda sayfası`
 - `valorantı ekran 2 de aç` / `valo monitör 2 başlat`
 - `google'la araştır python asyncio`
-- `bana konya restorantları araştır`
+- `bana konya restoranları araştır`
 - `jarvis saat kaç`
-- `not defteri aç` / `spotify aç` / `vscode aç`
-- `not al yarın fatura öde`
-- `kameradan fotoğraf çek`
-- `ekranı açıkla` (API anahtarı gerekir)
+- `not defteri aç` / `spotify aç`
 - `sistem durumu` / `çalışan programlar`
 
-Valorant yolu `config.json` → `allowed_apps.valorant` içinde. Riot farklı yerdeyse `path` alanını kendi kurulumuna göre düzenle.
+### Cursor ve kod (önemli)
+
+- Jarvis Cursor'ı ve kayıtlı projeyi **açabilir**.
+- “Site yap” → vanilla HTML/CSS/JS iskeleti `workspace_root/sites/` altına yazar, Cursor'da açar.
+- “Projeyi düzenle / şunu ekle” → `JARVIS_GOREV.md` yazar ve projeyi açar; Cursor Agent sohbetini uzaktan tam süremez, görev dosyasını Agent'a sen verirsin.
+- Projeleri `config.json` → `projects` map'ine ekle.
+
+Valorant yolu `config.json` → `allowed_apps.valorant` içinde.
 
 ## Yapılandırma
 

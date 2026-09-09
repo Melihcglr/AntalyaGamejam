@@ -12,6 +12,12 @@
   "require_confirm_for_risky": true,
   "speak_responses": true,
   "window_move_timeout_sec": 60,
+  "workspace_root": "~/JarvisWorkspace",
+  "cursor_cli": "cursor",
+  "projects": {
+    "asistan": ".",
+    "ortalik": "~/projects/ortalik"
+  },
   "allowed_apps": {
     "notepad": "notepad.exe",
     "explorer": "explorer.exe",
@@ -21,6 +27,11 @@
     "cmd": "cmd.exe",
     "spotify": "spotify.exe",
     "vscode": "code",
+    "cursor": {
+      "path": "cursor",
+      "window_title": "Cursor",
+      "process_name": "Cursor.exe"
+    },
     "discord": "discord.exe",
     "steam": "steam.exe",
     "valorant": {
