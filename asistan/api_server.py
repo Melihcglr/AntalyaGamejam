@@ -17,15 +17,24 @@ class CommandIn(BaseModel):
     confirm_token: str | None = None
 
 
+class SettingsPatch(BaseModel):
+    require_wake_word: bool | None = None
+    speak_responses: bool | None = None
+    wake_word: str | None = None
+    openai_api_key: str | None = None
+
+
 def create_app(assistant: Assistant | None = None) -> FastAPI:
     settings = Settings.load()
     bot = assistant or Assistant(settings)
-    app = FastAPI(title=f"{settings.assistant_name} Kontrol", version="0.1.0")
-    ui_dir = Path(__file__).resolve().parent / "ui"
-    captures = Path(__file__).resolve().parent / "captures"
+    app = FastAPI(title=f"{settings.assistant_name} Kontrol", version="0.2.0")
+    root = Path(__file__).resolve().parent
+    ui_dir = root / "ui"
+    captures = root / "captures"
     captures.mkdir(exist_ok=True)
 
     app.mount("/static", StaticFiles(directory=ui_dir), name="static")
+    app.mount("/captures", StaticFiles(directory=captures), name="captures")
 
     @app.get("/")
     def index() -> FileResponse:
@@ -59,6 +68,24 @@ def create_app(assistant: Assistant | None = None) -> FastAPI:
     @app.post("/api/screen")
     def screen() -> dict[str, Any]:
         return bot.handle_text("ekran görüntüsü al")
+
+    @app.post("/api/describe/screen")
+    def describe_screen() -> dict[str, Any]:
+        return bot.handle_text("ekranı açıkla")
+
+    @app.get("/api/notes")
+    def notes() -> dict[str, Any]:
+        return {"notes": bot.memory.list_notes(50)}
+
+    @app.patch("/api/settings")
+    def patch_settings(body: SettingsPatch) -> dict[str, Any]:
+        data = body.model_dump(exclude_none=True)
+        for key, value in data.items():
+            setattr(bot.settings, key, value)
+        bot.settings.save()
+        if "openai_api_key" in data:
+            bot.brain = type(bot.brain)(bot.settings)
+        return {"ok": True, "settings": bot.settings.model_dump()}
 
     app.state.assistant = bot
     return app

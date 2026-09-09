@@ -10,13 +10,16 @@ from pydantic import BaseModel, Field
 class Settings(BaseModel):
     assistant_name: str = "Jarvis"
     wake_word: str = "jarvis"
+    require_wake_word: bool = False
     language: str = "tr-TR"
+    timezone: str = "Europe/Istanbul"
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
     openai_model: str = "gpt-4o-mini"
     host: str = "127.0.0.1"
     port: int = 8787
     require_confirm_for_risky: bool = True
+    speak_responses: bool = True
     allowed_apps: dict[str, str] = Field(default_factory=dict)
     blocked_commands: list[str] = Field(default_factory=list)
 

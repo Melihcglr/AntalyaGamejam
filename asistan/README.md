@@ -1,63 +1,56 @@
 # Windows Jarvis Asistan
 
-Ses algılayan, gerektiğinde kamera/ekran kullanan, izinli sistem işlemleri yapan yerel Windows asistanı.
+Ses, kamera, bellek ve izinli sistem işlemleri olan yerel Windows asistanı.
 
-## Gereksinimler (Windows)
+## Hızlı başlat (Windows)
 
-- Python 3.11+
-- Mikrofon / kamera için Windows gizlilik izinleri
-- PyAudio için: [Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) veya önceden derlenmiş tekerlek
+`baslat.bat` dosyasına çift tıkla. İlk seferde sanal ortam ve paketler kurulur.
 
-## Kurulum
+veya:
 
 ```bat
 cd asistan
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-copy config.example.json config.json
+baslat.bat
 ```
 
-`config.json` içine isteğe bağlı `openai_api_key` yaz. Anahtar yoksa çevrimdışı kural motoru çalışır.
+Kontrol paneli: `http://127.0.0.1:8787`
 
-## Çalıştırma
+## Komut örnekleri
 
-Kontrol paneli (önerilen):
-
-```bat
-python main.py
-```
-
-Tarayıcı: `http://127.0.0.1:8787`
-
-Sadece metin CLI:
-
-```bat
-python main.py --cli
-```
-
-Mikrofon + CLI:
-
-```bat
-python main.py --listen
-```
-
-## Örnek komutlar
-
-- `not defteri aç`
+- `jarvis saat kaç`
+- `not defteri aç` / `spotify aç` / `vscode aç`
+- `ara python tutorial`
+- `not al yarın fatura öde`
+- `notlarımı göster`
 - `kameradan fotoğraf çek`
-- `ekran görüntüsü al`
-- `sistem durumu`
-- `chrome aç`
+- `ekranı açıkla` (API anahtarı gerekir)
+- `sistem durumu` / `çalışan programlar`
+- `sesi kıs` / `ses artır`
+
+## Yapılandırma
+
+`config.json` (ilk çalıştırmada örneğinden kopyalanır):
+
+- `openai_api_key` — isteğe bağlı; yoksa çevrimdışı kurallar
+- `require_wake_word` — `true` olursa yalnızca "jarvis ..." dinlenir
+- `allowed_apps` — açılabilecek uygulamalar
+- `blocked_commands` — engelli kabuk kalıpları
+
+## Modlar
+
+```bat
+python main.py           rem panel
+python main.py --cli     rem metin
+python main.py --listen  rem mikrofon + metin
+```
 
 ## Güvenlik
 
-- Uygulamalar yalnızca `allowed_apps` listesinden açılır
-- Riskli kabuk komutları onay ister; tehlikeli kalıplar engellenir
-- Asistan **tam yetkili admin** değildir; bilinçli olarak sınırlıdır
+Tam yönetici yetkisi yok. Uygulamalar listeden, riskli kabuk onaylı, tehlikeli kalıplar engelli.
 
 ## Klasörler
 
-- `core/` — kulak, ağız, beyin, eller, göz, güvenlik
-- `ui/` — vanilla kontrol paneli
-- `captures/` — kamera/ekran kayıtları
+- `core/` kulak, ağız, beyin, eller, göz, bellek, güvenlik
+- `ui/` kontrol paneli
+- `captures/` görüntüler
+- `data/` notlar / diyalog hafızası

@@ -2,7 +2,8 @@ const els = {
   name: document.getElementById("assistantName"),
   listen: document.getElementById("listenState"),
   brain: document.getElementById("brainState"),
-  pending: document.getElementById("pendingState"),
+  wake: document.getElementById("wakeState"),
+  notes: document.getElementById("notesState"),
   form: document.getElementById("cmdForm"),
   input: document.getElementById("cmdInput"),
   reply: document.getElementById("reply"),
@@ -10,9 +11,12 @@ const els = {
   btnListen: document.getElementById("btnListen"),
   btnCamera: document.getElementById("btnCamera"),
   btnScreen: document.getElementById("btnScreen"),
+  btnDescribe: document.getElementById("btnDescribe"),
+  btnWake: document.getElementById("btnWake"),
 };
 
 let listening = false;
+let requireWake = false;
 let confirmToken = null;
 
 async function api(path, options = {}) {
@@ -22,7 +26,8 @@ async function api(path, options = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.detail || res.statusText || "İstek başarısız");
+    const detail = data.detail;
+    throw new Error(typeof detail === "string" ? detail : res.statusText || "İstek başarısız");
   }
   return data;
 }
@@ -30,11 +35,15 @@ async function api(path, options = {}) {
 function renderStatus(status) {
   els.name.textContent = (status.name || "JARVIS").toUpperCase();
   listening = !!status.listening;
+  requireWake = !!status.require_wake_word;
   els.listen.textContent = listening ? "açık" : "kapalı";
   els.brain.textContent = status.brain_ready ? "API bağlı" : "çevrimdışı kurallar";
-  els.pending.textContent = status.pending_action || "yok";
+  els.wake.textContent = requireWake ? (status.wake_word || "zorunlu") : "serbest";
+  els.notes.textContent = String(status.notes_count ?? 0);
   els.btnListen.textContent = listening ? "Dinlemeyi kapat" : "Dinlemeyi aç";
   els.btnListen.classList.toggle("active", listening);
+  els.btnWake.textContent = requireWake ? "Wake: zorunlu" : "Wake: serbest";
+  els.btnWake.classList.toggle("active", requireWake);
 
   els.log.innerHTML = "";
   (status.log || []).slice().reverse().forEach((item) => {
@@ -105,6 +114,29 @@ els.btnScreen.addEventListener("click", async () => {
   try {
     const result = await api("/api/screen", { method: "POST", body: "{}" });
     els.reply.textContent = result.result?.message || result.speech || "Tamam.";
+    await refresh();
+  } catch (err) {
+    els.reply.textContent = String(err.message || err);
+  }
+});
+
+els.btnDescribe.addEventListener("click", async () => {
+  els.reply.textContent = "Ekran inceleniyor…";
+  try {
+    const result = await api("/api/describe/screen", { method: "POST", body: "{}" });
+    els.reply.textContent = result.speech || result.result?.message || "Tamam.";
+    await refresh();
+  } catch (err) {
+    els.reply.textContent = String(err.message || err);
+  }
+});
+
+els.btnWake.addEventListener("click", async () => {
+  try {
+    await api("/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ require_wake_word: !requireWake }),
+    });
     await refresh();
   } catch (err) {
     els.reply.textContent = String(err.message || err);

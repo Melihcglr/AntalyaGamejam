@@ -5,11 +5,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from .brain import Brain
+from .brain import Brain, local_time_speech, search_url, strip_wake
 from .config import Settings
 from .ear import Ear
 from .eye import Eye
 from .hands import ActionResult, Hands
+from .memory import Memory
 from .mouth import Mouth
 from .safety import SafetyGuard
 
@@ -41,6 +42,7 @@ class Assistant:
         self.brain = Brain(self.settings)
         self.hands = Hands(self.settings.allowed_apps, self.safety)
         self.eye = Eye()
+        self.memory = Memory.load()
         self.ear: Ear | None = None
         self.mouth: Mouth | None = None
         self.listening = False
@@ -50,7 +52,7 @@ class Assistant:
     def ensure_voice(self) -> None:
         if self.ear is None:
             self.ear = Ear(language=self.settings.language)
-        if self.mouth is None:
+        if self.mouth is None and self.settings.speak_responses:
             self.mouth = Mouth()
 
     def start_listening(self) -> None:
@@ -68,24 +70,30 @@ class Assistant:
         self.listening = False
         self.log.add("system", "Dinleme durdu.")
 
-    def _on_heard(self, text: str) -> None:
-        wake = self.settings.wake_word.lower()
+    def _wake_matched(self, text: str) -> bool:
         lowered = text.lower()
-        if wake and wake not in lowered and not lowered.startswith(self.settings.assistant_name.lower()):
-            # Wake word yoksa yine de komut kabul et (MVP); sadece logla.
-            self.log.add("heard", text, wake_matched=False)
-        else:
-            self.log.add("heard", text, wake_matched=True)
-        self.handle_text(text)
+        wake = self.settings.wake_word.lower()
+        name = self.settings.assistant_name.lower()
+        return wake in lowered or name in lowered or lowered.startswith("hey " + wake)
+
+    def _on_heard(self, text: str) -> None:
+        matched = self._wake_matched(text)
+        self.log.add("heard", text, wake_matched=matched)
+        if self.settings.require_wake_word and not matched:
+            return
+        command = strip_wake(text, self.settings.wake_word, self.settings.assistant_name)
+        self.handle_text(command)
 
     def handle_text(self, text: str, confirm_token: str | None = None) -> dict[str, Any]:
         with self._lock:
+            self.memory.remember_turn("user", text)
             plan = self.brain.plan(
                 text,
                 context={
                     "assistant": self.settings.assistant_name,
                     "allowed_apps": list(self.settings.allowed_apps),
                     "pending": self.safety.pending_action,
+                    "memory": self.memory.context_blob(),
                 },
             )
             speech = plan.get("speech") or ""
@@ -93,11 +101,27 @@ class Assistant:
             if confirm_token:
                 action["confirm_token"] = confirm_token
             result = self._execute(action)
-            if speech and self.mouth:
+
+            # Eylem çıktısını konuşmaya ekle (saat, durum vb.)
+            if result.ok and action.get("type") in {
+                "status",
+                "time",
+                "processes",
+                "note_list",
+                "describe_camera",
+                "describe_screen",
+            }:
+                speech = result.message or speech
+            elif not result.ok and result.message:
+                speech = f"{speech} {result.message}".strip() if speech else result.message
+
+            self.memory.remember_turn("assistant", speech or result.message)
+            if speech and self.mouth and self.settings.speak_responses:
                 try:
-                    self.mouth.say_async(speech if result.ok or not result.message else f"{speech} {result.message}")
+                    self.mouth.say_async(speech)
                 except Exception as exc:
                     self.log.add("tts-error", str(exc))
+
             payload = {
                 "input": text,
                 "speech": speech,
@@ -124,10 +148,19 @@ class Assistant:
             return self.hands.open_app(target)
         if kind == "open_url":
             return self.hands.open_url(target)
+        if kind == "open_path":
+            return self.hands.open_path(target)
         if kind == "shell":
             return self.hands.run_shell(target, confirm_token=token)
         if kind == "type_text":
             return self.hands.type_text(target)
+        if kind == "volume":
+            return self.hands.volume(target)
+        if kind == "search":
+            return self.hands.open_url(search_url(target))
+        if kind == "time":
+            msg = local_time_speech(self.settings.timezone)
+            return ActionResult(True, msg)
         if kind == "camera":
             try:
                 path = self.eye.snap_camera()
@@ -140,10 +173,38 @@ class Assistant:
                 return ActionResult(True, f"Ekran kaydı: {path}", data={"path": str(path)})
             except Exception as exc:
                 return ActionResult(False, str(exc))
+        if kind == "describe_camera":
+            try:
+                path = self.eye.snap_camera()
+                desc = self.brain.describe_image(path)
+                return ActionResult(True, desc, data={"path": str(path)})
+            except Exception as exc:
+                return ActionResult(False, str(exc))
+        if kind == "describe_screen":
+            try:
+                path = self.eye.snap_screen()
+                desc = self.brain.describe_image(path)
+                return ActionResult(True, desc, data={"path": str(path)})
+            except Exception as exc:
+                return ActionResult(False, str(exc))
         if kind == "status":
             return self.hands.system_status()
+        if kind == "processes":
+            return self.hands.list_processes()
         if kind == "list_apps":
             return self.hands.list_allowed_apps()
+        if kind == "note_add":
+            note = self.memory.add_note(target)
+            return ActionResult(True, f"Not kaydedildi: {note['text']}", data=note)
+        if kind == "note_list":
+            notes = self.memory.list_notes()
+            if not notes:
+                return ActionResult(True, "Kayıtlı not yok.", data={"notes": []})
+            joined = "; ".join(n["text"] for n in notes)
+            return ActionResult(True, f"Notların: {joined}", data={"notes": notes})
+        if kind == "note_clear":
+            n = self.memory.clear_notes()
+            return ActionResult(True, f"{n} not silindi.")
         return ActionResult(False, f"Bilinmeyen eylem: {kind}")
 
     def status(self) -> dict[str, Any]:
@@ -151,7 +212,10 @@ class Assistant:
             "name": self.settings.assistant_name,
             "listening": self.listening,
             "brain_ready": self.brain.ready,
+            "require_wake_word": self.settings.require_wake_word,
+            "wake_word": self.settings.wake_word,
             "pending_action": self.safety.pending_action,
-            "allowed_apps": list(self.settings.allowed_apps),
+            "allowed_apps": sorted(self.settings.allowed_apps),
+            "notes_count": len(self.memory.notes),
             "log": self.log.items[-30:],
         }

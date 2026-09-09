@@ -14,7 +14,7 @@
   <main class="shell">
     <header class="brand">
       <p class="mark" id="assistantName">JARVIS</p>
-      <p class="tagline">Windows masaüstü ajanı — ses, kamera, sistem</p>
+      <p class="tagline">Windows masaüstü ajanı — ses, kamera, bellek, sistem</p>
     </header>
 
     <section class="hud" aria-label="Durum">
@@ -27,8 +27,12 @@
         <strong id="brainState">—</strong>
       </div>
       <div class="meter">
-        <span class="label">Bekleyen</span>
-        <strong id="pendingState">yok</strong>
+        <span class="label">Wake</span>
+        <strong id="wakeState">—</strong>
+      </div>
+      <div class="meter">
+        <span class="label">Notlar</span>
+        <strong id="notesState">0</strong>
       </div>
     </section>
 
@@ -36,7 +40,7 @@
       <form id="cmdForm">
         <label for="cmdInput">Komut</label>
         <div class="row">
-          <input id="cmdInput" name="text" autocomplete="off" placeholder="ör. not defteri aç / kameradan fotoğraf çek / sistem durumu" />
+          <input id="cmdInput" name="text" autocomplete="off" placeholder="ör. jarvis saat kaç / not al süt al / ekranı açıkla" />
           <button type="submit">Gönder</button>
         </div>
       </form>
@@ -44,6 +48,8 @@
         <button type="button" id="btnListen" class="ghost">Dinlemeyi aç</button>
         <button type="button" id="btnCamera" class="ghost">Kamera</button>
         <button type="button" id="btnScreen" class="ghost">Ekran</button>
+        <button type="button" id="btnDescribe" class="ghost">Ekranı açıkla</button>
+        <button type="button" id="btnWake" class="ghost">Wake: serbest</button>
       </div>
       <p class="reply" id="reply" aria-live="polite"></p>
     </section>
