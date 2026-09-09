@@ -1,20 +1,64 @@
-# ESP32 röle → Jarvis
+# ESP32 ↔ PC Jarvis hub
 
-1. Arduino IDE veya PlatformIO ile `jarvis_relay.ino` yükle.
-2. `WIFI_SSID` / `WIFI_PASS` doldur.
-3. Seri monitörden IP’yi oku (örn. `192.168.1.50`).
-4. `asistan/config.json` içinde:
+## Mimari
 
+```
+Ses / telefon / panel
+        │
+        ▼
+   ESP32 Hub  (her zaman açık)
+        │
+        ├─ PC online? ──GET /api/health──► Windows Jarvis
+        │                      │
+        │                      └─ POST /api/command  (oyun modu, cursor, ışık…)
+        │
+        └─ PC offline?
+               ├─ ışık aç/kapat  (röle)
+               └─ bilgisayar aç  (Wake-on-LAN / power röle)
+```
+
+PC açılınca Windows’ta Jarvis otomatik başlar; aynı WiFi’de ESP bundan sonra komutları PC’ye yollar.
+
+## 1) ESP firmware
+
+Tercih edilen: `jarvis_hub/jarvis_hub.ino`
+
+Doldur:
+- `WIFI_SSID` / `WIFI_PASS`
+- `PC_HOST` = PC’nin yerel IP’si (sabit IP önerilir)
+- `PC_PORT` = `8787`
+- `PC_MAC` = PC MAC (WOL için BIOS’ta Wake-on-LAN açık olsun)
+
+Eski sadece-röle: `jarvis_relay/` (hub yok).
+
+## 2) PC Jarvis
+
+`config.json`:
 ```json
+"host": "0.0.0.0",
+"port": 8787,
+"pc_mac": "AA:BB:CC:DD:EE:FF",
+"esp_hub_url": "http://ESP_IP",
 "devices": {
-  "isik": {
-    "name": "Oda ışığı",
-    "aliases": ["ışık", "lamba"],
-    "base_url": "http://192.168.1.50"
-  }
+  "isik": { "base_url": "http://ESP_IP", "aliases": ["ışık", "lamba"] }
 }
 ```
 
-5. Sesli: `ışığı kapat` / `oyun modu`
+`0.0.0.0` şart — yoksa ESP PC’ye ulaşamaz.
 
-Röle pinini ve ACTIVE_LOW ayarını kartına göre değiştir.
+Windows açılışında otomatik: `asistan/windows_autostart.bat` dosyasını Görev Zamanlayıcı’ya veya Startup klasörüne ekle.
+
+## 3) Komut yollama (ESP üzerinden)
+
+```
+GET  http://ESP_IP/api/command?text=isigi%20kapat
+POST http://ESP_IP/api/command  {"text":"oyun modu"}
+GET  http://ESP_IP/health
+```
+
+PC açıkken `oyun modu` Jarvis’te çalışır (Valorant + ışık).
+PC kapalıyken aynı istek ESP’de ışık/WOL ile sınırlı kalır.
+
+## Güvenlik notu
+
+Hub şu an LAN içi açık HTTP. İleride token / sadece yerel subnet eklenebilir.

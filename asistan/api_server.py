@@ -40,6 +40,15 @@ def create_app(assistant: Assistant | None = None) -> FastAPI:
     def index() -> FileResponse:
         return FileResponse(ui_dir / "index.html")
 
+    @app.get("/api/health")
+    def health() -> dict[str, Any]:
+        return {
+            "ok": True,
+            "role": "pc-jarvis",
+            "name": bot.settings.assistant_name,
+            "listening": bot.listening,
+        }
+
     @app.get("/api/status")
     def status() -> dict[str, Any]:
         return bot.status()

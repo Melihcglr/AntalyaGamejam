@@ -16,6 +16,7 @@ from .memory import Memory
 from .mouth import Mouth
 from .safety import SafetyGuard
 from .scenes import SceneRunner
+from .wol import send_wol
 
 
 @dataclass
@@ -190,6 +191,14 @@ class Assistant:
             return self.scenes.run(target, execute=self._execute)
         if kind == "list_scenes":
             return self.scenes.list_scenes()
+        if kind == "pc_wake":
+            mac = self.settings.pc_mac.strip()
+            if not mac:
+                return ActionResult(
+                    False,
+                    "pc_mac ayarlı değil. config.json içine MAC yaz veya ESP hub üzerinden WOL kullan.",
+                )
+            return send_wol(mac, broadcast=self.settings.wol_broadcast)
         if kind == "open_url":
             return self.hands.open_url(target)
         if kind == "open_path":

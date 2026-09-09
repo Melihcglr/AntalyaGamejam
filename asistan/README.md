@@ -17,19 +17,22 @@ Kontrol paneli: `http://127.0.0.1:8787`
 
 ## Komut örnekleri
 
-- `oyun modu` → ışık kapat + Valorant ekran 2 (sahne)
+- `bilgisayar aç` (WOL / ESP hub)
+- `oyun modu` → ışık kapat + Valorant ekran 2 (PC açıkken)
 - `ışığı kapat` / `lambayı aç`
 - `çalışma modu` / `uyku modu`
 - `cursor aç` / `asistan projesini cursor'da aç`
-- `bana konya restoran sitesi yap`
 - `valorantı ekran 2 de aç`
 - `google'la araştır python asyncio`
 
-### Akıllı oda (ESP32)
+### Akıllı oda — ESP hub + PC
 
-- `config.json` → `devices` (ESP32 IP) ve `scenes` (oyun/çalışma…)
-- Örnek firmware: `esp32/jarvis_relay/`
-- Dinlemeyi açınca komutlar sürekli dinlenir (`Dinlemeyi aç` / `python main.py --listen`)
+ESP her zaman açık yönlendirici (`esp32/jarvis_hub/`):
+- **PC açıksa** → komut Windows Jarvis’e gider
+- **PC kapalıysa** → ESP ışık / WOL yapar
+
+PC’de `host: 0.0.0.0`, MAC/`esp_hub_url` ayarla; açılışta `windows_autostart.bat`.
+Detay: `esp32/README.md`
 
 ### Cursor ve kod (önemli)
 

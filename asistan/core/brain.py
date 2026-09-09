@@ -23,7 +23,7 @@ Sadece şu JSON şemasını döndür:
 {
   "speech": "Kullanıcıya sesli söylenecek kısa Türkçe cevap",
   "action": {
-    "type": "none|open_app|open_url|shell|type_text|camera|screen|describe_camera|describe_screen|status|list_apps|time|search|note_add|note_list|note_clear|volume|processes|open_path|open_cursor|open_project|create_site|agent_prompt|list_projects|device|device_status|list_devices|scene|list_scenes",
+    "type": "none|open_app|open_url|shell|type_text|camera|screen|describe_camera|describe_screen|status|list_apps|time|search|note_add|note_list|note_clear|volume|processes|open_path|open_cursor|open_project|create_site|agent_prompt|list_projects|device|device_status|list_devices|scene|list_scenes|pc_wake",
     "target": "hedef",
     "monitor": null,
     "state": null,
@@ -33,11 +33,10 @@ Sadece şu JSON şemasını döndür:
 
 Kurallar:
 - "oyun modu" → scene target=oyun
-- "ışığı kapat" / "lambayı aç" → device target=isik state=off|on
-- "valorantı ekran 2 de aç" → open_app target=valorant, monitor=2
-- "cursor aç" → open_cursor
-- "bana restoran sitesi yap" → create_site
-- Tehlikeli silme/format kaçın. JSON dışında bir şey yazma.
+- "ışığı kapat" / "lambayı aç" → device
+- "bilgisayar aç" / "pc yi uyandır" → pc_wake
+- "valorantı ekran 2 de aç" → open_app
+- JSON dışında bir şey yazma.
 """
 
 # anahtar -> konuşma aliasları
@@ -125,6 +124,13 @@ def match_home_intent(
         return plan("list_devices", "", "Cihazları listeliyorum.")
     if any(k in lowered for k in ("sahneleri listele", "modları listele", "sahneler")):
         return plan("list_scenes", "", "Sahneleri listeliyorum.")
+
+    # PC aç / uyandır (WOL) — cihaz kalıbından ÖNCE
+    if re.search(
+        r"\b(?:bilgisayar(?:ı|i)?|pc|komputer)\s*(?:yı|yi)?\s*(?:aç|uyandır|başlat)|wake\s*on\s*lan|wol\b",
+        lowered,
+    ):
+        return plan("pc_wake", "", "Bilgisayarı uyandırıyorum.")
 
     # Sahne: "oyun modu", "çalışma modunu aç"
     for key, aliases in scene_aliases.items():

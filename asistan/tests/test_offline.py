@@ -129,6 +129,15 @@ class OfflineAssistantTests(unittest.TestCase):
         scene = brain.plan("oyun modu")
         self.assertEqual(scene["action"]["type"], "scene")
         self.assertEqual(scene["action"]["target"], "oyun")
+        wake = brain.plan("bilgisayar aç")
+        self.assertEqual(wake["action"]["type"], "pc_wake")
+
+    def test_wol_mac(self) -> None:
+        from core.wol import normalize_mac, send_wol
+
+        self.assertEqual(normalize_mac("AA:BB:CC:DD:EE:FF").hex(), "aabbccddeeff")
+        bad = send_wol("not-a-mac")
+        self.assertFalse(bad.ok)
 
     def test_scene_runs_steps(self) -> None:
         from unittest.mock import patch
@@ -220,6 +229,11 @@ class ApiTests(unittest.TestCase):
         cls.client = TestClient(create_app(bot))
 
     def test_status_and_command(self) -> None:
+        health = self.client.get("/api/health")
+        self.assertEqual(health.status_code, 200)
+        self.assertTrue(health.json()["ok"])
+        self.assertEqual(health.json()["role"], "pc-jarvis")
+
         status = self.client.get("/api/status")
         self.assertEqual(status.status_code, 200)
         self.assertIn("name", status.json())
@@ -233,7 +247,9 @@ class ApiTests(unittest.TestCase):
     def test_settings_patch(self) -> None:
         from unittest.mock import patch
 
-        with patch.object(self.client.app.state.assistant.settings, "save"):
+        from core.config import Settings
+
+        with patch.object(Settings, "save", lambda self, path=None: None):
             res = self.client.patch("/api/settings", json={"require_wake_word": True})
         self.assertEqual(res.status_code, 200)
         self.assertTrue(res.json()["settings"]["require_wake_word"])

@@ -33,7 +33,7 @@ class Settings(BaseModel):
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
     openai_model: str = "gpt-4o-mini"
-    host: str = "127.0.0.1"
+    host: str = "0.0.0.0"
     port: int = 8787
     require_confirm_for_risky: bool = True
     speak_responses: bool = True
@@ -45,6 +45,10 @@ class Settings(BaseModel):
     projects: dict[str, str] = Field(default_factory=dict)
     devices: dict[str, DeviceSpec] = Field(default_factory=dict)
     scenes: dict[str, SceneSpec] = Field(default_factory=dict)
+    # ESP hub / WOL
+    pc_mac: str = ""
+    wol_broadcast: str = "255.255.255.255"
+    esp_hub_url: str = ""  # örn. http://192.168.1.50 — bilgilendirme / sağlık
 
     @field_validator("allowed_apps", mode="before")
     @classmethod
