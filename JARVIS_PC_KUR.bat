@@ -1,57 +1,23 @@
 @echo off
 chcp 65001 >nul
-title Jarvis - Indir ve Kur
+title Proje 0 Jarvis - Masaustune kur
 setlocal
-
-set "DEST=%USERPROFILE%\Desktop\AntalyaGamejam"
+set "DEST=%USERPROFILE%\Desktop\Proje0-Jarvis"
 set "REPO=https://github.com/Melihcglr/AntalyaGamejam.git"
 set "BRANCH=cursor/windows-jarvis-asistan-bd5e"
-
-echo ========================================
-echo   Jarvis - PC'ye indir + kur
-echo ========================================
-echo Hedef: %DEST%
-echo.
-
-where git >nul 2>&1
-if errorlevel 1 (
-  echo [HATA] Git yok. Indir: https://git-scm.com/download/win
-  start https://git-scm.com/download/win
-  pause
-  exit /b 1
-)
-
-where python >nul 2>&1
-if errorlevel 1 (
-  echo [HATA] Python yok. Indir: https://www.python.org/downloads/
-  echo Kurarken "Add python.exe to PATH" isaretle, sonra tekrar dene.
-  start https://www.python.org/downloads/
-  pause
-  exit /b 1
-)
-
-if exist "%DEST%\.git" (
-  echo [OK] Repo var, guncelleniyor...
+echo Proje 0 Jarvis → %DEST%
+where git >nul 2>&1 || (echo Git yok & start https://git-scm.com/download/win & pause & exit /b 1)
+where python >nul 2>&1 || (echo Python yok & start https://www.python.org/downloads/ & pause & exit /b 1)
+if exist "%DEST%\BASLAT.bat" (
   cd /d "%DEST%"
-  git fetch origin
-  git checkout %BRANCH%
-  git pull origin %BRANCH%
-) else (
-  echo [1/2] Repo klonlaniyor...
-  if exist "%DEST%" (
-    echo Klasor var ama git degil. Silip yeniden mi? Manuel kontrol et: %DEST%
-    pause
-    exit /b 1
-  )
-  git clone -b %BRANCH% %REPO% "%DEST%"
-  if errorlevel 1 (
-    echo [HATA] git clone basarisiz.
-    pause
-    exit /b 1
-  )
+  git -C "%DEST%" pull 2>nul
+  call BASLAT.bat
+  exit /b
 )
-
-cd /d "%DEST%\asistan"
-echo [2/2] Kurulum basliyor...
-call KUR_WINDOWS.bat
+git clone -b %BRANCH% %REPO% "%TEMP%\AntalyaGamejam-tmp"
+mkdir "%DEST%" 2>nul
+xcopy /E /I /Y "%TEMP%\AntalyaGamejam-tmp\proje-0-jarvis\*" "%DEST%\" >nul
+rmdir /S /Q "%TEMP%\AntalyaGamejam-tmp"
+cd /d "%DEST%"
+call BASLAT.bat
 endlocal
