@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+config.json
+captures/*.png
+captures/*.jpg
+data/memory.json
+.pytest_cache/
+*.egg-info/
+*.zip
