@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jarvis — Kontrol</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true"></div>
+  <main class="shell">
+    <header class="brand">
+      <p class="mark" id="assistantName">JARVIS</p>
+      <p class="tagline">Windows masaüstü ajanı — ses, kamera, bellek, sistem</p>
+    </header>
+
+    <section class="hud" aria-label="Durum">
+      <div class="meter">
+        <span class="label">Dinleme</span>
+        <strong id="listenState">kapalı</strong>
+      </div>
+      <div class="meter">
+        <span class="label">Beyin</span>
+        <strong id="brainState">—</strong>
+      </div>
+      <div class="meter">
+        <span class="label">Wake</span>
+        <strong id="wakeState">—</strong>
+      </div>
+      <div class="meter">
+        <span class="label">Notlar</span>
+        <strong id="notesState">0</strong>
+      </div>
+      <div class="meter">
+        <span class="label">Mikrofon</span>
+        <strong id="micState">—</strong>
+      </div>
+    </section>
+
+    <section class="command" aria-label="Komut">
+      <form id="cmdForm">
+        <label for="cmdInput">Komut</label>
+        <div class="row">
+          <input id="cmdInput" name="text" autocomplete="off" placeholder="ör. jarvis saat kaç / not al süt al / ekranı açıkla" />
+          <button type="submit">Gönder</button>
+        </div>
+      </form>
+      <div class="row token-row">
+        <label for="apiToken">API token</label>
+        <input id="apiToken" type="password" autocomplete="off" placeholder="config api_token (LAN koruması)" />
+        <button type="button" id="btnSaveToken" class="ghost">Kaydet</button>
+        <button type="button" id="btnGenToken" class="ghost">Üret</button>
+      </div>
+      <div class="actions">
+        <button type="button" id="btnListen" class="ghost">Dinlemeyi aç</button>
+        <button type="button" id="btnMute" class="ghost">Mikrofon mute</button>
+        <button type="button" id="btnPtt" class="ghost">PTT basılı tut</button>
+        <button type="button" id="btnCamera" class="ghost">Kamera</button>
+        <button type="button" id="btnScreen" class="ghost">Ekran</button>
+        <button type="button" id="btnDescribe" class="ghost">Ekranı açıkla</button>
+        <button type="button" id="btnWake" class="ghost">Wake: serbest</button>
+        <button type="button" id="btnGame" class="ghost">Oyun modu</button>
+        <button type="button" id="btnWork" class="ghost">Çalışma modu</button>
+        <button type="button" id="btnLightOff" class="ghost">Işık kapat</button>
+        <button type="button" id="btnScan" class="ghost">Ağı tara</button>
+        <button type="button" id="btnAdopt" class="ghost">ESP bağla</button>
+      </div>
+      <p class="reply" id="reply" aria-live="polite"></p>
+      <p class="warnings" id="deviceWarnings" aria-live="polite"></p>
+    </section>
+
+    <section class="log" aria-label="Olay günlüğü">
+      <h2>Günlük</h2>
+      <ul id="logList"></ul>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
