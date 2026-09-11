@@ -1,19 +1,21 @@
-# Jarvis 1.0
+# Jarvis
 
-Yerel Windows asistanı — **buluta bağlı değil**. Masaüstünde kendi klasöründe çalışır.
+Yerel Windows asistanı — **buluta bağlı değil**. Masaüstünde `Jarvis` klasöründe çalışır.
 
-## Masaüstüne yedekle (önerilen)
+## Masaüstüne taşı (önerilen)
 
 1. Bu paketi bilgisayarına indir / kopyala
 2. `YEDEKLE_MASAUSTU.bat` çift tıkla  
-   → `%USERPROFILE%\Desktop\Jarvis 1.0` oluşur  
+   → `%USERPROFILE%\Desktop\Jarvis` oluşur  
    → yerel `git` deposu açılır (uzak sunucu yok)  
    → bağımlılıklar kurulur, Jarvis başlar
 3. Panel: http://127.0.0.1:8787
 
+Detay: `LOCAL.md`
+
 ## Sadece başlat
 
-Zaten `Desktop\Jarvis 1.0` içindeysen: `BASLAT.bat`
+Zaten `Desktop\Jarvis` içindeysen: `BASLAT.bat`
 
 ## Gereksinimler
 

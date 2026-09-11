@@ -1,18 +1,15 @@
 # AntalyaGamejam
 
-- **`Jarvis-1.0/`** — Bağımsız Jarvis paketi. Masaüstüne yerel yedek: `YEDEKLE_MASAUSTU.bat` → `Desktop\Jarvis 1.0` (+ yerel git, bulutsuz).
-- **`proje-0-jarvis/`** — Aynı asistanın önceki kopyası.
-- **`asistan/`** — Geliştirme kopyası (geriye uyumluluk).
+- **`Jarvis-1.0/`** — Bağımsız Jarvis paketi. Masaüstüne taşı: `YEDEKLE_MASAUSTU.bat` → `Desktop\Jarvis` (+ yerel git, bulutsuz).
+- **`proje-0-jarvis/`** / **`asistan/`** — Eski kopyalar.
 - **`KediGozu/`** — Unity oyun projesi.
 
-## Windows — Jarvis 1.0 (masaüstü, yerel repo)
-
-Repo kökünde:
+## Windows — Desktop\Jarvis (yerel)
 
 ```bat
-JARVIS_1.0_MASAUSTUNE_YEDEKLE.bat
+TASI_MASAUSTUNE_JARVIS.bat
 ```
 
-veya `Jarvis-1.0\YEDEKLE_MASAUSTU.bat`  
-Hedef: `%USERPROFILE%\Desktop\Jarvis 1.0`  
-Panel: http://127.0.0.1:8787
+Hedef: `%USERPROFILE%\Desktop\Jarvis`  
+Panel: http://127.0.0.1:8787  
+Sonrasında cloud gerekmez — sadece masaüstü klasöründe çalış.

@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul
-title Jarvis 1.0 - Kurulum / Baslat
+title Jarvis - Kurulum / Baslat
 cd /d "%~dp0"
 
 echo ========================================
-echo   Jarvis 1.0
+echo   Jarvis (masaüstü / yerel)
 echo ========================================
 echo.
 
@@ -45,8 +45,9 @@ if not exist "config.json" (
 )
 
 echo.
-echo [3/3] Jarvis 1.0 basliyor...
+echo [3/3] Jarvis basliyor...
 echo Panel: http://127.0.0.1:8787
+echo Klasor: %CD%
 echo.
 start "" http://127.0.0.1:8787
 python main.py --host 0.0.0.0 --port 8787
